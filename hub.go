@@ -17,35 +17,36 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
-
-	stateManager *StateManager
 }
 
 func newHub() *Hub {
 	return &Hub{
-		action:       make(chan Action),
-		register:     make(chan *Client),
-		unregister:   make(chan *Client),
-		clients:      make(map[*Client]bool),
-		stateManager: newStateManager(),
+		action:     make(chan Action),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		clients:    make(map[*Client]bool),
 	}
 }
 
 func (h *Hub) run() {
 	log.Println("run state manager")
-	go h.stateManager.run()
-	go h.broadcast()
-	middleware := newMiddleware()
+
+	deck := getDeck()
+	stateManager := newStateManager(deck)
+	middleware := newMiddleware(deck)
+
+	go stateManager.run()
+	go h.broadcast(&stateManager.json)
 	pActions := middleware.preparareState()
 	for _, a := range pActions {
-		h.stateManager.action <- a
+		stateManager.action <- a
 	}
 	for {
 		select {
 		case client := <-h.register:
 			log.Println("register")
 			h.clients[client] = true
-			h.stateManager.action <- &StateActionGetState{}
+			stateManager.action <- &StateActionGetState{}
 		case client := <-h.unregister:
 			log.Println("unregister")
 			if _, ok := h.clients[client]; ok {
@@ -55,15 +56,15 @@ func (h *Hub) run() {
 		case action := <-h.action:
 			actions := middleware.handle(string(action.message), action.client.playerId)
 			for _, a := range actions {
-				h.stateManager.action <- a
+				stateManager.action <- a
 			}
 		}
 	}
 }
 
-func (h *Hub) broadcast() {
+func (h *Hub) broadcast(channel *chan []byte) {
 	for {
-		state := <-h.stateManager.json
+		state := <-*channel
 		for client := range h.clients {
 			select {
 			case client.send <- state:

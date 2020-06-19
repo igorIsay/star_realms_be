@@ -10,7 +10,7 @@ type CardEntry struct {
 	cardType             CardType
 }
 
-func getDeck() map[string]*CardEntry {
+func getDeck() *map[string]*CardEntry {
 	deck := make(map[string]*CardEntry)
 
 	deck["scout"] = scout()
@@ -20,7 +20,7 @@ func getDeck() map[string]*CardEntry {
 	deck["tradePod"] = tradePod()
 	deck["ram"] = ram()
 
-	return deck
+	return &deck
 }
 
 func scout() *CardEntry {

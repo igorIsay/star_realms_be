@@ -140,9 +140,9 @@ func (s *StateActionChangeTurn) Data() map[string]interface{} {
 	return data
 }
 
-func newStateManager() *StateManager {
+func newStateManager(deck *map[string]*CardEntry) *StateManager {
 	return &StateManager{
-		state:  newState(),
+		state:  newState(deck),
 		action: make(chan StateAction),
 		json:   make(chan []byte),
 	}

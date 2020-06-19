@@ -6,7 +6,7 @@ import (
 )
 
 type Middleware struct {
-	deck      map[string]*CardEntry
+	deck      *map[string]*CardEntry
 	allyState *AllyState
 }
 
@@ -55,9 +55,9 @@ const (
 var emptyUtilizationAbilities []*Ability
 var emptyAllyAbilities []*Ability
 
-func newMiddleware() *Middleware {
+func newMiddleware(deck *map[string]*CardEntry) *Middleware {
 	return &Middleware{
-		deck:      getDeck(),
+		deck:      deck,
 		allyState: emptyAllyState(),
 	}
 }
@@ -110,6 +110,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 		//opponentDiscard = FirstPlayerDiscard
 	}
 
+	deck := *m.deck
 	var actions []StateAction
 	parsed := strings.Split(action, ",")
 	if len(parsed) == 0 {
@@ -124,7 +125,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 			return actions
 		}
 		id := parsed[1]
-		card, ok := m.deck[strings.Split(id, "_")[0]]
+		card, ok := deck[strings.Split(id, "_")[0]]
 		if !ok {
 			//TODO: handle exception
 			return actions
@@ -218,7 +219,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 			return actions
 		}
 		id := parsed[1]
-		card, ok := m.deck[strings.Split(id, "_")[0]]
+		card, ok := deck[strings.Split(id, "_")[0]]
 		if !ok {
 			//TODO: handle exception
 			return actions
@@ -243,7 +244,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 			return actions
 		}
 		id := parsed[1]
-		card, ok := m.deck[strings.Split(id, "_")[0]]
+		card, ok := deck[strings.Split(id, "_")[0]]
 		if !ok {
 			//TODO: handle exception
 			return actions
