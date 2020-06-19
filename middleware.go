@@ -86,6 +86,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 	currentPlayerHand := FirstPlayerHand
 	currentPlayerTable := FirstPlayerTable
 	currentPlayerDiscard := FirstPlayerDiscard
+	currentPlayerBases := FirstPlayerBases
 
 	opponent := SecondPlayer
 	//opponentDeck := SecondPlayerDeck
@@ -99,6 +100,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 		currentPlayerHand = SecondPlayerHand
 		currentPlayerTable = SecondPlayerTable
 		currentPlayerDiscard = SecondPlayerDiscard
+		currentPlayerBases = SecondPlayerBases
 
 		opponent = FirstPlayer
 		//opponentDeck = FirstPlayerDeck
@@ -127,10 +129,17 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 			//TODO: handle exception
 			return actions
 		}
-		actions = append(actions, &StateActionMoveCard{
-			id: id,
-			to: currentPlayerTable,
-		})
+		if card.cardType == Ship {
+			actions = append(actions, &StateActionMoveCard{
+				id: id,
+				to: currentPlayerTable,
+			})
+		} else {
+			actions = append(actions, &StateActionMoveCard{
+				id: id,
+				to: currentPlayerBases,
+			})
+		}
 		for _, ability := range card.primaryAbilities {
 			if ability.player == Current {
 				actions = append(actions, ability.action(currentPlayer))

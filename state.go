@@ -24,10 +24,12 @@ const (
 	FirstPlayerHand
 	FirstPlayerTable
 	FirstPlayerDiscard
+	FirstPlayerBases
 	SecondPlayerDeck
 	SecondPlayerHand
 	SecondPlayerTable
 	SecondPlayerDiscard
+	SecondPlayerBases
 )
 
 type Counters struct {
