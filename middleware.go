@@ -53,6 +53,7 @@ const (
 	Buy
 	Utilize
 	Start
+	DestroyBase
 )
 
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
@@ -106,7 +107,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 	//opponentDeck := SecondPlayerDeck
 	//opponentHand := SecondPlayerHand
 	//opponentTable := SecondPlayerTable
-	//opponentDiscard := SecondPlayerDiscard
+	opponentDiscard := SecondPlayerDiscard
 
 	if player == SecondPlayer {
 		currentPlayerDeck = SecondPlayerDeck
@@ -119,7 +120,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		//opponentDeck = FirstPlayerDeck
 		//opponentHand = FirstPlayerHand
 		//opponentTable = FirstPlayerTable
-		//opponentDiscard = FirstPlayerDiscard
+		opponentDiscard = FirstPlayerDiscard
 	}
 
 	deck := *m.deck
@@ -147,6 +148,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = Utilize
 	case 6:
 		userAction = Start
+	case 7:
+		userAction = DestroyBase
 	default:
 		//TODO: handle exception
 		return actions
@@ -287,6 +290,31 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		actions = append(actions, &StateActionRequestUserAction{
 			player: currentPlayer,
 			action: None,
+		})
+	case DestroyBase:
+		if len(parsed) < 2 {
+			//TODO: handle exception
+			return actions
+		}
+		id := parsed[1]
+		card, ok := deck[strings.Split(id, "_")[0]]
+		if !ok {
+			//TODO: handle exception
+			return actions
+		}
+		if card.cardType != Base {
+			//TODO: handle exception
+			return actions
+		}
+		actions = append(actions, &StateActionChangeCounterValue{
+			player:    currentPlayer,
+			counter:   Combat,
+			operation: Decrease,
+			value:     card.defense,
+		})
+		actions = append(actions, &StateActionMoveCard{
+			id: id,
+			to: opponentDiscard,
 		})
 	}
 	actions = append(actions, &StateActionGetState{})
