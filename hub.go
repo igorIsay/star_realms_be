@@ -54,7 +54,7 @@ func (h *Hub) run() {
 				close(client.send)
 			}
 		case action := <-h.action:
-			actions := middleware.handle(string(action.message), action.client.playerId)
+			actions := middleware.handle(string(action.message), action.client.playerId, stateManager.state)
 			for _, a := range actions {
 				stateManager.action <- a
 			}
