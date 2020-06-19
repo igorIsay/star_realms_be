@@ -21,35 +21,23 @@ const (
 	FirstPlayerHandCardsQty int = 3
 )
 
-type Faction int
-
-const (
-	Unaligned Faction = iota
-	Blob
-	MachineCult
-	StarEmpire
-	TradeFederation
-)
-
-type CardType int
-
-const (
-	Ship CardType = iota
-	Base
-)
-
-type Abilities []*Ability
-
-type Ability struct {
-	player PlayerPointer
-	action func(PlayerId) StateAction
-}
-
 type PlayerPointer int
 
 const (
 	Current PlayerPointer = iota
 	Opponent
+)
+
+type UserAction int
+
+const (
+	None UserAction = iota
+	Play
+	End
+	Damage
+	Buy
+	Utilize
+	Start
 )
 
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
@@ -116,9 +104,31 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 		//TODO: handle exception
 		return actions
 	}
-	action = parsed[0]
-	switch action {
-	case "play":
+	parsedAction, err := strconv.Atoi(parsed[0])
+	if err != nil {
+		//TODO: handle exception
+		return actions
+	}
+	var userAction UserAction
+	switch parsedAction {
+	case 1:
+		userAction = Play
+	case 2:
+		userAction = End
+	case 3:
+		userAction = Damage
+	case 4:
+		userAction = Buy
+	case 5:
+		userAction = Utilize
+	case 6:
+		userAction = Start
+	default:
+		//TODO: handle exception
+		return actions
+	}
+	switch userAction {
+	case Play:
 		if len(parsed) < 2 {
 			//TODO: handle exception
 			return actions
@@ -172,7 +182,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 				}
 			}
 		}
-	case "end":
+	case End:
 		m.resetAllyState()
 		actions = append(actions, &StateActionMoveAll{
 			from: currentPlayerTable,
@@ -196,8 +206,12 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 				to:   currentPlayerHand,
 			})
 		}
+		actions = append(actions, &StateActionRequestUserAction{
+			player: opponent,
+			action: Start,
+		})
 		actions = append(actions, &StateActionChangeTurn{})
-	case "damage":
+	case Damage:
 		if len(parsed) < 2 {
 			//TODO: handle exception
 			return actions
@@ -219,7 +233,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 			operation: Decrease,
 			value:     damage,
 		})
-	case "buy":
+	case Buy:
 		if len(parsed) < 2 {
 			//TODO: handle exception
 			return actions
@@ -244,7 +258,7 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 			operation: Decrease,
 			value:     card.cost,
 		})
-	case "utilize":
+	case Utilize:
 		if len(parsed) < 2 {
 			//TODO: handle exception
 			return actions
@@ -266,6 +280,11 @@ func (m *Middleware) handle(action string, player PlayerId) []StateAction {
 				actions = append(actions, ability.action(opponent))
 			}
 		}
+	case Start:
+		actions = append(actions, &StateActionRequestUserAction{
+			player: currentPlayer,
+			action: None,
+		})
 	}
 	actions = append(actions, &StateActionGetState{})
 	return actions

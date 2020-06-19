@@ -1,5 +1,29 @@
 package main
 
+type Faction int
+
+const (
+	Unaligned Faction = iota
+	Blob
+	MachineCult
+	StarEmpire
+	TradeFederation
+)
+
+type CardType int
+
+const (
+	Ship CardType = iota
+	Base
+)
+
+type Abilities []*Ability
+
+type Ability struct {
+	player PlayerPointer
+	action func(PlayerId) StateAction
+}
+
 type CardEntry struct {
 	cost                 int
 	qty                  int

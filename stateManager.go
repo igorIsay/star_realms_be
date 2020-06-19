@@ -19,6 +19,7 @@ const (
 	MoveAll
 	GetState
 	ChangeTurn
+	RequestUserAction
 )
 
 type PlayerId int
@@ -140,6 +141,22 @@ func (s *StateActionChangeTurn) Data() map[string]interface{} {
 	return data
 }
 
+type StateActionRequestUserAction struct {
+	player PlayerId
+	action UserAction
+}
+
+func (s *StateActionRequestUserAction) Type() StateActionType {
+	return RequestUserAction
+}
+
+func (s *StateActionRequestUserAction) Data() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["player"] = s.player
+	data["action"] = s.action
+	return data
+}
+
 func newStateManager(deck *map[string]*CardEntry) *StateManager {
 	return &StateManager{
 		state:  newState(deck),
@@ -215,6 +232,16 @@ func (s *StateManager) run() {
 				s.state.Turn = SecondPlayer
 			} else {
 				s.state.Turn = FirstPlayer
+			}
+		case RequestUserAction:
+			data := action.Data()
+			player := data["player"].(PlayerId)
+			userAction := data["action"].(UserAction)
+			switch player {
+			case FirstPlayer:
+				s.state.FirstPlayerActionRequest = userAction
+			case SecondPlayer:
+				s.state.SecondPlayerActionRequest = userAction
 			}
 		case GetState:
 			state, _ := json.Marshal(s.state)

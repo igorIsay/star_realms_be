@@ -3,10 +3,12 @@ package main
 import "fmt"
 
 type State struct {
-	Turn                 PlayerId         `json:"turn"`
-	FirstPlayerCounters  Counters         `json:"firstPlayerCounters"`
-	SecondPlayerCounters Counters         `json:"secondPlayerCounters"`
-	Cards                map[string]*Card `json:"cards"`
+	Turn                      PlayerId         `json:"turn"`
+	FirstPlayerCounters       Counters         `json:"firstPlayerCounters"`
+	SecondPlayerCounters      Counters         `json:"secondPlayerCounters"`
+	Cards                     map[string]*Card `json:"cards"`
+	FirstPlayerActionRequest  UserAction       `json:"firstPlayerActionRequest"`
+	SecondPlayerActionRequest UserAction       `json:"secondPlayerActionRequest"`
 }
 
 type Card struct {
@@ -51,6 +53,8 @@ func newState(deck *map[string]*CardEntry) *State {
 			Authority: initialAuthority,
 		},
 		Cards: cards,
+		FirstPlayerActionRequest:  None,
+		SecondPlayerActionRequest: None,
 	}
 }
 
