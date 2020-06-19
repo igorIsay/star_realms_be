@@ -2,6 +2,7 @@ package main
 
 type CardEntry struct {
 	cost                 int
+	qty                  int
 	faction              Faction
 	primaryAbilities     Abilities
 	utilizationAbilities Abilities
@@ -37,6 +38,7 @@ func scout() *CardEntry {
 	primaryAbilities := []*Ability{&primaryAbility}
 	return &CardEntry{
 		cost:                 0,
+		qty:                  16,
 		faction:              Unaligned,
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
@@ -60,6 +62,7 @@ func viper() *CardEntry {
 	primaryAbilities := []*Ability{&primaryAbility}
 	return &CardEntry{
 		cost:                 0,
+		qty:                  4,
 		faction:              Unaligned,
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
@@ -95,6 +98,7 @@ func explorer() *CardEntry {
 	utilizationAbilities := []*Ability{&utilizationAbility}
 	return &CardEntry{
 		cost:                 2,
+		qty:                  10,
 		faction:              Unaligned,
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: utilizationAbilities,
@@ -128,6 +132,7 @@ func blobFighter() *CardEntry {
 	allyAbilities := []*Ability{&allyAbility}
 	return &CardEntry{
 		cost:                 1,
+		qty:                  3,
 		faction:              Blob,
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
@@ -163,6 +168,7 @@ func tradePod() *CardEntry {
 	allyAbilities := []*Ability{&allyAbility}
 	return &CardEntry{
 		cost:                 2,
+		qty:                  2,
 		faction:              Blob,
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
@@ -198,6 +204,7 @@ func ram() *CardEntry {
 	allyAbilities := []*Ability{&allyAbility}
 	return &CardEntry{
 		cost:                 3,
+		qty:                  2,
 		faction:              Blob,
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
