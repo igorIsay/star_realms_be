@@ -31,6 +31,13 @@ const (
 	TradeFederation
 )
 
+type CardType int
+
+const (
+	Ship CardType = iota
+	Base
+)
+
 type Abilities []*Ability
 
 type CardEntry struct {
@@ -39,6 +46,7 @@ type CardEntry struct {
 	primaryAbilities     Abilities
 	utilizationAbilities Abilities
 	allyAbilities        Abilities
+	cardType             CardType
 }
 
 type Ability struct {
@@ -75,6 +83,7 @@ func scout() *CardEntry {
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
 		allyAbilities:        emptyAllyAbilities,
+		cardType:             Ship,
 	}
 }
 
@@ -97,6 +106,7 @@ func viper() *CardEntry {
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
 		allyAbilities:        emptyAllyAbilities,
+		cardType:             Ship,
 	}
 }
 
@@ -131,6 +141,7 @@ func explorer() *CardEntry {
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: utilizationAbilities,
 		allyAbilities:        emptyAllyAbilities,
+		cardType:             Ship,
 	}
 }
 
@@ -163,6 +174,7 @@ func blobFighter() *CardEntry {
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
 		allyAbilities:        allyAbilities,
+		cardType:             Ship,
 	}
 }
 
@@ -197,6 +209,7 @@ func tradePod() *CardEntry {
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
 		allyAbilities:        allyAbilities,
+		cardType:             Ship,
 	}
 }
 
@@ -231,6 +244,7 @@ func ram() *CardEntry {
 		primaryAbilities:     primaryAbilities,
 		utilizationAbilities: emptyUtilizationAbilities,
 		allyAbilities:        allyAbilities,
+		cardType:             Ship,
 	}
 }
 
