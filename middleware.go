@@ -52,9 +52,6 @@ const (
 	Opponent
 )
 
-var emptyUtilizationAbilities []*Ability
-var emptyAllyAbilities []*Ability
-
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
 	return &Middleware{
 		deck:      deck,
