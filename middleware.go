@@ -367,7 +367,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		if currentPlayerCounters.Discard == 1 {
 			actions = append(actions, &StateActionRequestUserAction{
 				player: currentPlayer,
-				action: None,
+				action: Start,
 			})
 		}
 	}

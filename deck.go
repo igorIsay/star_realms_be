@@ -49,20 +49,40 @@ func getDeck() *map[string]*CardEntry {
 	deck["theHive"] = theHive()
 	deck["blobWheel"] = blobWheel()
 
+	deck["corvette"] = corvette()
+	deck["dreadnaught"] = dreadnaught()
+	deck["imperialFighter"] = imperialFighter()
+	deck["imperialFrigate"] = imperialFrigate()
+	deck["royalRedoubt"] = royalRedoubt()
+	deck["spaceStation"] = spaceStation()
+	deck["surveyShip"] = surveyShip()
+	deck["warWorld"] = warWorld()
+
 	return &deck
+}
+
+func changeCounter(operation Operation, counter Counter, value int) func(PlayerId) StateAction {
+	return func(player PlayerId) StateAction {
+		return &StateActionChangeCounterValue{
+			player:    player,
+			counter:   counter,
+			operation: operation,
+			value:     value,
+		}
+	}
+}
+
+func drawCard(player PlayerId) StateAction {
+	return &StateActionRandomCard{
+		from: playerDeckMapper(player, Deck),
+		to:   playerDeckMapper(player, Hand),
+	}
 }
 
 func scout() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Trade,
-				operation: Increase,
-				value:     1,
-			}
-		},
+		action: changeCounter(Increase, Trade, 1),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	return &CardEntry{
@@ -80,14 +100,7 @@ func scout() *CardEntry {
 func viper() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     1,
-			}
-		},
+		action: changeCounter(Increase, Combat, 1),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	return &CardEntry{
@@ -105,26 +118,12 @@ func viper() *CardEntry {
 func explorer() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Trade,
-				operation: Increase,
-				value:     2,
-			}
-		},
+		action: changeCounter(Increase, Trade, 2),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	utilizationAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     2,
-			}
-		},
+		action: changeCounter(Increase, Combat, 2),
 	}
 	utilizationAbilities := []*Ability{&utilizationAbility}
 	return &CardEntry{
@@ -142,24 +141,12 @@ func explorer() *CardEntry {
 func blobFighter() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     3,
-			}
-		},
+		action: changeCounter(Increase, Combat, 3),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	allyAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionRandomCard{
-				from: playerDeckMapper(player, Deck),
-				to:   playerDeckMapper(player, Hand),
-			}
-		},
+		action: drawCard,
 	}
 	allyAbilities := []*Ability{&allyAbility}
 	return &CardEntry{
@@ -177,26 +164,12 @@ func blobFighter() *CardEntry {
 func tradePod() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Trade,
-				operation: Increase,
-				value:     3,
-			}
-		},
+		action: changeCounter(Increase, Trade, 3),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	allyAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     2,
-			}
-		},
+		action: changeCounter(Increase, Combat, 2),
 	}
 	allyAbilities := []*Ability{&allyAbility}
 	return &CardEntry{
@@ -214,34 +187,25 @@ func tradePod() *CardEntry {
 func ram() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     5,
-			}
-		},
+		action: changeCounter(Increase, Combat, 5),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	allyAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     2,
-			}
-		},
+		action: changeCounter(Increase, Combat, 2),
 	}
 	allyAbilities := []*Ability{&allyAbility}
+	utilizationAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Trade, 3),
+	}
+	utilizationAbilities := []*Ability{&utilizationAbility}
 	return &CardEntry{
 		cost:                 3,
 		qty:                  2,
 		faction:              Blob,
 		primaryAbilities:     primaryAbilities,
-		utilizationAbilities: emptyAbilities,
+		utilizationAbilities: utilizationAbilities,
 		allyAbilities:        allyAbilities,
 		cardType:             Ship,
 		defense:              0,
@@ -251,24 +215,12 @@ func ram() *CardEntry {
 func theHive() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     3,
-			}
-		},
+		action: changeCounter(Increase, Combat, 3),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	allyAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionRandomCard{
-				from: playerDeckMapper(player, Deck),
-				to:   playerDeckMapper(player, Hand),
-			}
-		},
+		action: drawCard,
 	}
 	allyAbilities := []*Ability{&allyAbility}
 	return &CardEntry{
@@ -286,26 +238,12 @@ func theHive() *CardEntry {
 func blobWheel() *CardEntry {
 	primaryAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Combat,
-				operation: Increase,
-				value:     1,
-			}
-		},
+		action: changeCounter(Increase, Combat, 1),
 	}
 	primaryAbilities := []*Ability{&primaryAbility}
 	utilizationAbility := Ability{
 		player: Current,
-		action: func(player PlayerId) StateAction {
-			return &StateActionChangeCounterValue{
-				player:    player,
-				counter:   Trade,
-				operation: Increase,
-				value:     3,
-			}
-		},
+		action: changeCounter(Increase, Trade, 3),
 	}
 	utilizationAbilities := []*Ability{&utilizationAbility}
 	return &CardEntry{
@@ -317,5 +255,234 @@ func blobWheel() *CardEntry {
 		allyAbilities:        emptyAbilities,
 		cardType:             Base,
 		defense:              5,
+	}
+}
+
+func imperialFighter() *CardEntry {
+	primaryAbilityCombat := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 2),
+	}
+	primaryAbilityDiscard := Ability{
+		player: Opponent,
+		action: changeCounter(Increase, Discard, 1),
+	}
+	primaryAbilities := []*Ability{
+		&primaryAbilityCombat,
+		&primaryAbilityDiscard,
+	}
+	allyAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 2),
+	}
+	allyAbilities := []*Ability{&allyAbility}
+	return &CardEntry{
+		cost:                 1,
+		qty:                  3,
+		faction:              StarEmpire,
+		primaryAbilities:     primaryAbilities,
+		utilizationAbilities: emptyAbilities,
+		allyAbilities:        allyAbilities,
+		cardType:             Ship,
+		defense:              0,
+	}
+}
+
+func imperialFrigate() *CardEntry {
+	primaryAbilityCombat := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 4),
+	}
+	primaryAbilityDiscard := Ability{
+		player: Opponent,
+		action: changeCounter(Increase, Discard, 1),
+	}
+	primaryAbilities := []*Ability{
+		&primaryAbilityCombat,
+		&primaryAbilityDiscard,
+	}
+	allyAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 2),
+	}
+	allyAbilities := []*Ability{&allyAbility}
+	utilizationAbility := Ability{
+		player: Current,
+		action: drawCard,
+	}
+	utilizationAbilities := []*Ability{&utilizationAbility}
+	return &CardEntry{
+		cost:                 1,
+		qty:                  3,
+		faction:              StarEmpire,
+		primaryAbilities:     primaryAbilities,
+		utilizationAbilities: utilizationAbilities,
+		allyAbilities:        allyAbilities,
+		cardType:             Ship,
+		defense:              0,
+	}
+}
+
+func corvette() *CardEntry {
+	primaryAbilityCombat := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 1),
+	}
+	primaryAbilityDraw := Ability{
+		player: Current,
+		action: drawCard,
+	}
+	primaryAbilities := []*Ability{
+		&primaryAbilityCombat,
+		&primaryAbilityDraw,
+	}
+	allyAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 2),
+	}
+	allyAbilities := []*Ability{&allyAbility}
+	return &CardEntry{
+		cost:                 2,
+		qty:                  2,
+		faction:              StarEmpire,
+		primaryAbilities:     primaryAbilities,
+		utilizationAbilities: emptyAbilities,
+		allyAbilities:        allyAbilities,
+		cardType:             Ship,
+		defense:              0,
+	}
+}
+
+func dreadnaught() *CardEntry {
+	primaryAbilityCombat := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 7),
+	}
+	primaryAbilityDraw := Ability{
+		player: Current,
+		action: drawCard,
+	}
+	primaryAbilities := []*Ability{
+		&primaryAbilityCombat,
+		&primaryAbilityDraw,
+	}
+	utilizationAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 5),
+	}
+	utilizationAbilities := []*Ability{&utilizationAbility}
+	return &CardEntry{
+		cost:                 7,
+		qty:                  1,
+		faction:              StarEmpire,
+		primaryAbilities:     primaryAbilities,
+		utilizationAbilities: utilizationAbilities,
+		allyAbilities:        emptyAbilities,
+		cardType:             Ship,
+		defense:              0,
+	}
+}
+
+func royalRedoubt() *CardEntry {
+	primaryAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 3),
+	}
+	primaryAbilities := []*Ability{&primaryAbility}
+	allyAbility := Ability{
+		player: Opponent,
+		action: changeCounter(Increase, Discard, 1),
+	}
+	allyAbilities := []*Ability{&allyAbility}
+	return &CardEntry{
+		cost:                 6,
+		qty:                  1,
+		faction:              StarEmpire,
+		cardType:             Base,
+		defense:              6,
+		primaryAbilities:     primaryAbilities,
+		utilizationAbilities: emptyAbilities,
+		allyAbilities:        allyAbilities,
+	}
+}
+
+func spaceStation() *CardEntry {
+	primaryAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 2),
+	}
+	primaryAbilities := []*Ability{&primaryAbility}
+	allyAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 2),
+	}
+	allyAbilities := []*Ability{&allyAbility}
+	utilizationAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Trade, 4),
+	}
+	utilizationAbilities := []*Ability{&utilizationAbility}
+	return &CardEntry{
+		cost:                 4,
+		qty:                  2,
+		faction:              StarEmpire,
+		cardType:             Base,
+		defense:              4,
+		primaryAbilities:     primaryAbilities,
+		allyAbilities:        allyAbilities,
+		utilizationAbilities: utilizationAbilities,
+	}
+}
+
+func surveyShip() *CardEntry {
+	primaryAbilityTrade := Ability{
+		player: Current,
+		action: changeCounter(Increase, Trade, 1),
+	}
+	primaryAbilityDraw := Ability{
+		player: Current,
+		action: drawCard,
+	}
+	primaryAbilities := []*Ability{
+		&primaryAbilityTrade,
+		&primaryAbilityDraw,
+	}
+	utilizationAbility := Ability{
+		player: Opponent,
+		action: changeCounter(Increase, Discard, 1),
+	}
+	utilizationAbilities := []*Ability{&utilizationAbility}
+	return &CardEntry{
+		cost:                 3,
+		qty:                  3,
+		faction:              StarEmpire,
+		cardType:             Ship,
+		defense:              0,
+		primaryAbilities:     primaryAbilities,
+		allyAbilities:        emptyAbilities,
+		utilizationAbilities: utilizationAbilities,
+	}
+}
+
+func warWorld() *CardEntry {
+	primaryAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 3),
+	}
+	primaryAbilities := []*Ability{&primaryAbility}
+	allyAbility := Ability{
+		player: Current,
+		action: changeCounter(Increase, Combat, 4),
+	}
+	allyAbilities := []*Ability{&allyAbility}
+	return &CardEntry{
+		cost:                 5,
+		qty:                  1,
+		faction:              StarEmpire,
+		cardType:             Base,
+		defense:              4,
+		primaryAbilities:     primaryAbilities,
+		allyAbilities:        allyAbilities,
+		utilizationAbilities: emptyAbilities,
 	}
 }
