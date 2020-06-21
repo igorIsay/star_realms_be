@@ -43,6 +43,13 @@ const (
 	OpponentBases
 )
 
+type CountersPointer int
+
+const (
+	CurrentPlayerCounters CountersPointer = iota
+	OpponentCounters
+)
+
 type UserAction int
 
 const (
@@ -54,6 +61,7 @@ const (
 	Utilize
 	Start
 	DestroyBase
+	DiscardCard
 )
 
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
@@ -150,6 +158,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = Start
 	case 7:
 		userAction = DestroyBase
+	case 8:
+		userAction = DiscardCard
 	default:
 		//TODO: handle exception
 		return actions
@@ -202,10 +212,22 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				to:   currentPlayerHand,
 			})
 		}
-		actions = append(actions, &StateActionRequestUserAction{
-			player: opponent,
-			action: Start,
-		})
+		opponentCounters, err := m.relativeCounters(player, OpponentCounters, state)
+		if err != nil {
+			// TODO handle exception
+			return actions
+		}
+		if opponentCounters.Discard > 0 {
+			actions = append(actions, &StateActionRequestUserAction{
+				player: opponent,
+				action: DiscardCard,
+			})
+		} else {
+			actions = append(actions, &StateActionRequestUserAction{
+				player: opponent,
+				action: Start,
+			})
+		}
 		actions = append(actions, &StateActionChangeTurn{})
 	case Damage:
 		if len(parsed) < 2 {
@@ -316,6 +338,38 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			id: id,
 			to: opponentDiscard,
 		})
+	case DiscardCard:
+		if len(parsed) < 2 {
+			//TODO: handle exception
+			return actions
+		}
+		id := parsed[1]
+		_, ok := deck[strings.Split(id, "_")[0]]
+		if !ok {
+			//TODO: handle exception
+			return actions
+		}
+		actions = append(actions, &StateActionMoveCard{
+			id: id,
+			to: currentPlayerDiscard,
+		})
+		actions = append(actions, &StateActionChangeCounterValue{
+			player:    currentPlayer,
+			counter:   Discard,
+			operation: Decrease,
+			value:     1,
+		})
+		currentPlayerCounters, err := m.relativeCounters(player, CurrentPlayerCounters, state)
+		if err != nil {
+			// TODO handle exception
+			return actions
+		}
+		if currentPlayerCounters.Discard == 1 {
+			actions = append(actions, &StateActionRequestUserAction{
+				player: currentPlayer,
+				action: None,
+			})
+		}
 	}
 	actions = append(actions, &StateActionGetState{})
 	return actions
@@ -407,7 +461,37 @@ func (m *Middleware) relativePlayer(actualPlayer PlayerId, playerPointer PlayerP
 	default:
 		return actualPlayer, &WrongPlayerIdError{}
 	}
+}
 
+type WrongCountersPointerError struct{}
+
+func (e *WrongCountersPointerError) Error() string {
+	return "wrong CountersPointer"
+}
+
+func (m *Middleware) relativeCounters(actualPlayer PlayerId, countersPointer CountersPointer, state *State) (Counters, error) {
+	switch actualPlayer {
+	case FirstPlayer:
+		switch countersPointer {
+		case CurrentPlayerCounters:
+			return state.FirstPlayerCounters, nil
+		case OpponentCounters:
+			return state.SecondPlayerCounters, nil
+		default:
+			return Counters{}, &WrongCountersPointerError{}
+		}
+	case SecondPlayer:
+		switch countersPointer {
+		case CurrentPlayerCounters:
+			return state.SecondPlayerCounters, nil
+		case OpponentCounters:
+			return state.FirstPlayerCounters, nil
+		default:
+			return Counters{}, &WrongCountersPointerError{}
+		}
+	default:
+		return Counters{}, &WrongPlayerIdError{}
+	}
 }
 
 func (m *Middleware) playAbilities(player PlayerId, card *CardEntry, actions *[]StateAction) {
