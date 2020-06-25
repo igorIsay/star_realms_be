@@ -29,6 +29,7 @@ type CardEntry struct {
 	qty                  int
 	defense              int
 	faction              Faction
+	beforePlay           Abilities
 	primaryAbilities     Abilities
 	utilizationAbilities Abilities
 	allyAbilities        Abilities
@@ -505,12 +506,24 @@ func battleMech() *CardEntry {
 	return &CardEntry{
 		cost:     5,
 		qty:      1,
-		faction:  Unaligned,
+		faction:  MachineCult,
 		cardType: Ship,
+		beforePlay: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCard),
+			},
+		},
 		primaryAbilities: []*Ability{
 			&Ability{
 				player: Current,
-				action: actionRequest(ScrapCardAndPlayBattleMech),
+				action: changeCounter(Increase, Combat, 4),
+			},
+		},
+		allyAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: drawCard,
 			},
 		},
 	}
@@ -520,12 +533,24 @@ func missileBot() *CardEntry {
 	return &CardEntry{
 		cost:     2,
 		qty:      3,
-		faction:  Unaligned,
+		faction:  MachineCult,
 		cardType: Ship,
+		beforePlay: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCard),
+			},
+		},
 		primaryAbilities: []*Ability{
 			&Ability{
 				player: Current,
-				action: actionRequest(ScrapCardAndPlayMissileBot),
+				action: changeCounter(Increase, Combat, 2),
+			},
+		},
+		allyAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: changeCounter(Increase, Combat, 2),
 			},
 		},
 	}
@@ -535,12 +560,24 @@ func supplyBot() *CardEntry {
 	return &CardEntry{
 		cost:     3,
 		qty:      3,
-		faction:  Unaligned,
+		faction:  MachineCult,
 		cardType: Ship,
+		beforePlay: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCard),
+			},
+		},
 		primaryAbilities: []*Ability{
 			&Ability{
 				player: Current,
-				action: actionRequest(ScrapCardAndPlaySupplyBot),
+				action: changeCounter(Increase, Trade, 2),
+			},
+		},
+		allyAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: changeCounter(Increase, Combat, 2),
 			},
 		},
 	}
@@ -550,12 +587,24 @@ func tradeBot() *CardEntry {
 	return &CardEntry{
 		cost:     1,
 		qty:      3,
-		faction:  Unaligned,
+		faction:  MachineCult,
 		cardType: Ship,
+		beforePlay: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCard),
+			},
+		},
 		primaryAbilities: []*Ability{
 			&Ability{
 				player: Current,
-				action: actionRequest(ScrapCardAndPlayTradeBot),
+				action: changeCounter(Increase, Trade, 1),
+			},
+		},
+		allyAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: changeCounter(Increase, Combat, 2),
 			},
 		},
 	}

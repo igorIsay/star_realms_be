@@ -18,7 +18,8 @@ type Card struct {
 type CardLocation int
 
 const (
-	TradeDeck CardLocation = iota
+	UndefinedLocation CardLocation = iota
+	TradeDeck
 	TradeRow
 	Explorers
 	ScrapHeap
@@ -41,6 +42,21 @@ type Counters struct {
 	Discard   int `json:"discard"`
 }
 
+type UserAction int
+
+const (
+	NoneAction UserAction = iota
+	Play
+	End
+	Damage
+	Buy
+	Utilize
+	Start
+	DestroyBase
+	DiscardCard
+	ScrapCard
+)
+
 func newState(deck *map[string]*CardEntry) *State {
 	const initialAuthority int = 50
 	cards := cardsInitialSet(deck)
@@ -53,8 +69,8 @@ func newState(deck *map[string]*CardEntry) *State {
 			Authority: initialAuthority,
 		},
 		Cards: cards,
-		FirstPlayerActionRequest:  None,
-		SecondPlayerActionRequest: None,
+		FirstPlayerActionRequest:  NoneAction,
+		SecondPlayerActionRequest: NoneAction,
 	}
 }
 

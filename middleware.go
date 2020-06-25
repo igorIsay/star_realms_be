@@ -1,13 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
 
 type Middleware struct {
-	deck      *map[string]*CardEntry
-	allyState *AllyState
+	deck         *map[string]*CardEntry
+	allyState    *AllyState
+	deferredCall func() []StateAction
 }
 
 type AllyState struct {
@@ -50,25 +53,6 @@ const (
 	OpponentCounters
 )
 
-type UserAction int
-
-const (
-	None UserAction = iota
-	Play
-	End
-	Damage
-	Buy
-	Utilize
-	Start
-	DestroyBase
-	DiscardCard
-	ScrapCard
-	ScrapCardAndPlayBattleMech
-	ScrapCardAndPlayMissileBot
-	ScrapCardAndPlaySupplyBot
-	ScrapCardAndPlayTradeBot
-)
-
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
 	return &Middleware{
 		deck:      deck,
@@ -99,41 +83,56 @@ func (m *Middleware) resetAllyState() {
 
 func (m *Middleware) handle(action string, player PlayerId, state *State) []StateAction {
 	var actions []StateAction
+	var deferredActions []StateAction
 
 	currentPlayer, err := m.relativePlayer(player, Current)
 	if err != nil {
 		// TODO handle error
+		log.Println(err)
 		return actions
 	}
 	opponent, err := m.relativePlayer(player, Opponent)
 	if err != nil {
 		// TODO handle error
+		log.Println(err)
 		return actions
 	}
 
-	currentPlayerDeck := FirstPlayerDeck
-	currentPlayerHand := FirstPlayerHand
-	currentPlayerTable := FirstPlayerTable
-	currentPlayerDiscard := FirstPlayerDiscard
-	currentPlayerBases := FirstPlayerBases
-
-	//opponentDeck := SecondPlayerDeck
-	//opponentHand := SecondPlayerHand
-	//opponentTable := SecondPlayerTable
-	opponentDiscard := SecondPlayerDiscard
-
-	if player == SecondPlayer {
-		currentPlayerDeck = SecondPlayerDeck
-		currentPlayerHand = SecondPlayerHand
-		currentPlayerTable = SecondPlayerTable
-		currentPlayerDiscard = SecondPlayerDiscard
-		currentPlayerBases = SecondPlayerBases
-
-		opponent = FirstPlayer
-		//opponentDeck = FirstPlayerDeck
-		//opponentHand = FirstPlayerHand
-		//opponentTable = FirstPlayerTable
-		opponentDiscard = FirstPlayerDiscard
+	currentDeck, err := m.locationByPointer(CurrentDeck, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return actions
+	}
+	currentHand, err := m.locationByPointer(CurrentHand, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return actions
+	}
+	currentTable, err := m.locationByPointer(CurrentTable, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return actions
+	}
+	currentBases, err := m.locationByPointer(CurrentBases, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return actions
+	}
+	currentDiscard, err := m.locationByPointer(CurrentDiscard, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return actions
+	}
+	opponentDiscard, err := m.locationByPointer(OpponentDiscard, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return actions
 	}
 
 	deck := *m.deck
@@ -145,6 +144,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 	parsedAction, err := strconv.Atoi(parsed[0])
 	if err != nil {
 		//TODO: handle exception
+		log.Println(err)
 		return actions
 	}
 	var userAction UserAction
@@ -167,17 +167,13 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = DiscardCard
 	case 9:
 		userAction = ScrapCard
-	case 10:
-		userAction = ScrapCardAndPlayBattleMech
-	case 11:
-		userAction = ScrapCardAndPlayMissileBot
-	case 12:
-		userAction = ScrapCardAndPlaySupplyBot
-	case 13:
-		userAction = ScrapCardAndPlayTradeBot
 	default:
 		//TODO: handle exception
 		return actions
+	}
+	if m.deferredCall != nil {
+		deferredActions = m.deferredCall()
+		m.deferredCall = nil
 	}
 	switch userAction {
 	case Play:
@@ -187,23 +183,39 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		}
 		id := parsed[1]
 		card, ok := deck[strings.Split(id, "_")[0]]
-		if !ok {
-			//TODO: handle exception
-			return actions
+		if ok {
+			if card.cardType == Ship {
+				m.moveCard(id, currentTable, &actions)
+			} else {
+				m.moveCard(id, currentBases, &actions)
+			}
+
+			if len(card.beforePlay) > 0 {
+				for _, ability := range card.beforePlay {
+					if ability.player == Current {
+						actions = append(actions, ability.action(currentPlayer))
+					} else {
+						actions = append(actions, ability.action(opponent))
+					}
+				}
+
+				m.deferredCall = func() []StateAction {
+					var actions []StateAction
+					m.playAbilities(player, card, &actions)
+					return actions
+				}
+			} else {
+				m.playAbilities(player, card, &actions)
+			}
 		}
-		if card.cardType == Ship {
-			m.moveCard(id, currentPlayerTable, &actions)
-		} else {
-			m.moveCard(id, currentPlayerBases, &actions)
-		}
-		m.playAbilities(player, card, &actions)
+
 	case End:
 		m.resetAllyState()
-		m.moveAll(currentPlayerTable, currentPlayerDiscard, &actions)
+		m.moveAll(currentTable, currentDiscard, &actions)
 		m.changeCounterValue(currentPlayer, Set, Trade, 0, &actions)
 		m.changeCounterValue(currentPlayer, Set, Combat, 0, &actions)
 		for i := 1; i <= HandCardsQty; i++ {
-			m.randomCard(currentPlayerDeck, currentPlayerHand, &actions)
+			m.randomCard(currentDeck, currentHand, &actions)
 		}
 		opponentCounters, err := m.relativeCounters(player, OpponentCounters, state)
 		if err != nil {
@@ -239,7 +251,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		m.moveCard(id, currentPlayerDiscard, &actions)
+		m.moveCard(id, currentDiscard, &actions)
 		m.randomCard(TradeDeck, TradeRow, &actions)
 		m.changeCounterValue(currentPlayer, Decrease, Trade, card.cost, &actions)
 	case Utilize:
@@ -261,9 +273,10 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				actions = append(actions, ability.action(opponent))
 			}
 		}
+
 	case Start:
 		for cardId, card := range state.Cards {
-			if card.Location == currentPlayerBases {
+			if card.Location == currentBases {
 				cardEntry, ok := deck[strings.Split(cardId, "_")[0]]
 				if !ok {
 					//TODO: handle exception
@@ -272,7 +285,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				m.playAbilities(player, cardEntry, &actions)
 			}
 		}
-		m.requestUserAction(currentPlayer, None, &actions)
+		m.requestUserAction(currentPlayer, NoneAction, &actions)
 	case DestroyBase:
 		if len(parsed) < 2 {
 			//TODO: handle exception
@@ -302,7 +315,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			return actions
 		}
 
-		m.moveCard(id, currentPlayerDiscard, &actions)
+		m.moveCard(id, currentDiscard, &actions)
 		m.changeCounterValue(currentPlayer, Decrease, Discard, 1, &actions)
 
 		currentPlayerCounters, err := m.relativeCounters(player, CurrentPlayerCounters, state)
@@ -314,93 +327,19 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			m.requestUserAction(currentPlayer, Start, &actions)
 		}
 	case ScrapCard:
-		m.scrapCard(parsed, currentPlayer, &actions)
-
-	case ScrapCardAndPlayBattleMech:
-		m.scrapCard(parsed, currentPlayer, &actions)
-
-		battleMech := &CardEntry{
-			faction:  MachineCult,
-			cardType: Ship,
-			primaryAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: changeCounter(Increase, Combat, 4),
-				},
-			},
-			allyAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: drawCard,
-				},
-			},
-			utilizationAbilities: emptyAbilities,
+		if len(parsed) > 1 {
+			id := parsed[1]
+			_, ok := deck[strings.Split(id, "_")[0]]
+			if ok {
+				m.moveCard(id, ScrapHeap, &actions)
+			}
 		}
-		m.playAbilities(player, battleMech, &actions)
-
-	case ScrapCardAndPlayMissileBot:
-		m.scrapCard(parsed, currentPlayer, &actions)
-
-		missileBot := &CardEntry{
-			faction:  MachineCult,
-			cardType: Ship,
-			primaryAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: changeCounter(Increase, Combat, 2),
-				},
-			},
-			allyAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: changeCounter(Increase, Combat, 2),
-				},
-			},
-		}
-		m.playAbilities(player, missileBot, &actions)
-
-	case ScrapCardAndPlaySupplyBot:
-		m.scrapCard(parsed, currentPlayer, &actions)
-
-		supplyBot := &CardEntry{
-			faction:  MachineCult,
-			cardType: Ship,
-			primaryAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: changeCounter(Increase, Trade, 2),
-				},
-			},
-			allyAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: changeCounter(Increase, Combat, 2),
-				},
-			},
-		}
-		m.playAbilities(player, supplyBot, &actions)
-
-	case ScrapCardAndPlayTradeBot:
-		m.scrapCard(parsed, currentPlayer, &actions)
-
-		tradeBot := &CardEntry{
-			faction:  MachineCult,
-			cardType: Ship,
-			primaryAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: changeCounter(Increase, Trade, 1),
-				},
-			},
-			allyAbilities: []*Ability{
-				&Ability{
-					player: Current,
-					action: changeCounter(Increase, Combat, 2),
-				},
-			},
-		}
-		m.playAbilities(player, tradeBot, &actions)
+		m.requestUserAction(player, NoneAction, &actions)
 	}
+	for _, action := range deferredActions {
+		actions = append(actions, action)
+	}
+
 	actions = append(actions, &StateActionGetState{})
 	return actions
 }
@@ -447,16 +386,36 @@ func playerDeckMapper(player PlayerId, deck DeckType) CardLocation {
 	return mapper[player][deck]
 }
 
-type WrongPlayerPointerError struct{}
-
-func (e *WrongPlayerPointerError) Error() string {
-	return "wrong PlayerPointer"
+type WrongPlayerIdError struct {
+	id PlayerId
 }
 
-type WrongPlayerIdError struct{}
-
 func (e *WrongPlayerIdError) Error() string {
-	return "wrong PlayerId"
+	return fmt.Sprintf("wrong PlayerId %d", e.id)
+}
+
+type WrongPlayerPointerError struct {
+	p PlayerPointer
+}
+
+func (e *WrongPlayerPointerError) Error() string {
+	return fmt.Sprintf("wrong PlayerPointer %d", e.p)
+}
+
+type WrongCountersPointerError struct {
+	p CountersPointer
+}
+
+func (e *WrongCountersPointerError) Error() string {
+	return fmt.Sprintf("wrong CountersPointer %d", e.p)
+}
+
+type WrongLocationPointerError struct {
+	p LocationPointer
+}
+
+func (e *WrongLocationPointerError) Error() string {
+	return fmt.Sprintf("wrong LocationPointer %d", e.p)
 }
 
 func (m *Middleware) relativePlayer(actualPlayer PlayerId, playerPointer PlayerPointer) (PlayerId, error) {
@@ -468,7 +427,7 @@ func (m *Middleware) relativePlayer(actualPlayer PlayerId, playerPointer PlayerP
 		case Opponent:
 			return SecondPlayer, nil
 		default:
-			return actualPlayer, &WrongPlayerPointerError{}
+			return actualPlayer, &WrongPlayerPointerError{playerPointer}
 		}
 	case SecondPlayer:
 		switch playerPointer {
@@ -477,21 +436,15 @@ func (m *Middleware) relativePlayer(actualPlayer PlayerId, playerPointer PlayerP
 		case Opponent:
 			return FirstPlayer, nil
 		default:
-			return actualPlayer, &WrongPlayerPointerError{}
+			return actualPlayer, &WrongPlayerPointerError{playerPointer}
 		}
 	default:
-		return actualPlayer, &WrongPlayerIdError{}
+		return actualPlayer, &WrongPlayerIdError{actualPlayer}
 	}
 }
 
-type WrongCountersPointerError struct{}
-
-func (e *WrongCountersPointerError) Error() string {
-	return "wrong CountersPointer"
-}
-
-func (m *Middleware) relativeCounters(actualPlayer PlayerId, countersPointer CountersPointer, state *State) (Counters, error) {
-	switch actualPlayer {
+func (m *Middleware) relativeCounters(player PlayerId, countersPointer CountersPointer, state *State) (Counters, error) {
+	switch player {
 	case FirstPlayer:
 		switch countersPointer {
 		case CurrentPlayerCounters:
@@ -499,7 +452,7 @@ func (m *Middleware) relativeCounters(actualPlayer PlayerId, countersPointer Cou
 		case OpponentCounters:
 			return state.SecondPlayerCounters, nil
 		default:
-			return Counters{}, &WrongCountersPointerError{}
+			return Counters{}, &WrongCountersPointerError{countersPointer}
 		}
 	case SecondPlayer:
 		switch countersPointer {
@@ -508,10 +461,10 @@ func (m *Middleware) relativeCounters(actualPlayer PlayerId, countersPointer Cou
 		case OpponentCounters:
 			return state.FirstPlayerCounters, nil
 		default:
-			return Counters{}, &WrongCountersPointerError{}
+			return Counters{}, &WrongCountersPointerError{countersPointer}
 		}
 	default:
-		return Counters{}, &WrongPlayerIdError{}
+		return Counters{}, &WrongPlayerIdError{player}
 	}
 }
 
@@ -519,11 +472,13 @@ func (m *Middleware) playAbilities(player PlayerId, card *CardEntry, actions *[]
 	currentPlayer, err := m.relativePlayer(player, Current)
 	if err != nil {
 		// TODO handle error
+		log.Println(err)
 		return
 	}
 	opponent, err := m.relativePlayer(player, Opponent)
 	if err != nil {
 		// TODO handle error
+		log.Println(err)
 		return
 	}
 
@@ -598,14 +553,43 @@ func (m *Middleware) moveAll(from CardLocation, to CardLocation, actions *[]Stat
 	})
 }
 
-func (m *Middleware) scrapCard(actionData []string, player PlayerId, actions *[]StateAction) {
-	deck := *m.deck
-	if len(actionData) > 1 {
-		id := actionData[1]
-		_, ok := deck[strings.Split(id, "_")[0]]
-		if ok {
-			m.moveCard(id, ScrapHeap, actions)
+func (m *Middleware) locationByPointer(pointer LocationPointer, player PlayerId) (CardLocation, error) {
+	switch player {
+	case FirstPlayer:
+		switch pointer {
+		case CurrentTable:
+			return FirstPlayerTable, nil
+		case CurrentBases:
+			return FirstPlayerBases, nil
+		case CurrentDeck:
+			return FirstPlayerDeck, nil
+		case CurrentHand:
+			return FirstPlayerHand, nil
+		case CurrentDiscard:
+			return FirstPlayerDiscard, nil
+		case OpponentDiscard:
+			return SecondPlayerDiscard, nil
+		default:
+			return UndefinedLocation, &WrongLocationPointerError{pointer}
 		}
+	case SecondPlayer:
+		switch pointer {
+		case CurrentTable:
+			return SecondPlayerTable, nil
+		case CurrentBases:
+			return SecondPlayerBases, nil
+		case CurrentDeck:
+			return SecondPlayerDeck, nil
+		case CurrentHand:
+			return SecondPlayerHand, nil
+		case CurrentDiscard:
+			return SecondPlayerDiscard, nil
+		case OpponentDiscard:
+			return FirstPlayerDiscard, nil
+		default:
+			return UndefinedLocation, &WrongLocationPointerError{pointer}
+		}
+	default:
+		return UndefinedLocation, &WrongPlayerIdError{player}
 	}
-	m.requestUserAction(player, None, actions)
 }
