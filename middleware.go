@@ -274,6 +274,20 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			}
 		}
 
+		// Upade AllyState after utilization
+		foundSameFactionCard := false
+		for cardId, c := range state.Cards {
+			if cardId != id &&
+				(c.Location == currentTable || c.Location == currentBases) &&
+				deck[strings.Split(cardId, "_")[0]].faction == card.faction {
+
+				foundSameFactionCard = true
+			}
+		}
+		if foundSameFactionCard == false {
+			m.allyState.flags[card.faction] = false
+			m.allyState.abilities[card.faction] = []*Ability{}
+		}
 	case Start:
 		for cardId, card := range state.Cards {
 			if card.Location == currentBases {
