@@ -62,6 +62,11 @@ const (
 	Start
 	DestroyBase
 	DiscardCard
+	ScrapCard
+	ScrapCardAndPlayBattleMech
+	ScrapCardAndPlayMissileBot
+	ScrapCardAndPlaySupplyBot
+	ScrapCardAndPlayTradeBot
 )
 
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
@@ -160,6 +165,16 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = DestroyBase
 	case 8:
 		userAction = DiscardCard
+	case 9:
+		userAction = ScrapCard
+	case 10:
+		userAction = ScrapCardAndPlayBattleMech
+	case 11:
+		userAction = ScrapCardAndPlayMissileBot
+	case 12:
+		userAction = ScrapCardAndPlaySupplyBot
+	case 13:
+		userAction = ScrapCardAndPlayTradeBot
 	default:
 		//TODO: handle exception
 		return actions
@@ -177,40 +192,18 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			return actions
 		}
 		if card.cardType == Ship {
-			actions = append(actions, &StateActionMoveCard{
-				id: id,
-				to: currentPlayerTable,
-			})
+			m.moveCard(id, currentPlayerTable, &actions)
 		} else {
-			actions = append(actions, &StateActionMoveCard{
-				id: id,
-				to: currentPlayerBases,
-			})
+			m.moveCard(id, currentPlayerBases, &actions)
 		}
 		m.playAbilities(player, card, &actions)
 	case End:
 		m.resetAllyState()
-		actions = append(actions, &StateActionMoveAll{
-			from: currentPlayerTable,
-			to:   currentPlayerDiscard,
-		})
-		actions = append(actions, &StateActionChangeCounterValue{
-			player:    currentPlayer,
-			counter:   Trade,
-			operation: Set,
-			value:     0,
-		})
-		actions = append(actions, &StateActionChangeCounterValue{
-			player:    currentPlayer,
-			counter:   Combat,
-			operation: Set,
-			value:     0,
-		})
+		m.moveAll(currentPlayerTable, currentPlayerDiscard, &actions)
+		m.changeCounterValue(currentPlayer, Set, Trade, 0, &actions)
+		m.changeCounterValue(currentPlayer, Set, Combat, 0, &actions)
 		for i := 1; i <= HandCardsQty; i++ {
-			actions = append(actions, &StateActionRandomCard{
-				from: currentPlayerDeck,
-				to:   currentPlayerHand,
-			})
+			m.randomCard(currentPlayerDeck, currentPlayerHand, &actions)
 		}
 		opponentCounters, err := m.relativeCounters(player, OpponentCounters, state)
 		if err != nil {
@@ -218,15 +211,9 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			return actions
 		}
 		if opponentCounters.Discard > 0 {
-			actions = append(actions, &StateActionRequestUserAction{
-				player: opponent,
-				action: DiscardCard,
-			})
+			m.requestUserAction(opponent, DiscardCard, &actions)
 		} else {
-			actions = append(actions, &StateActionRequestUserAction{
-				player: opponent,
-				action: Start,
-			})
+			m.requestUserAction(opponent, Start, &actions)
 		}
 		actions = append(actions, &StateActionChangeTurn{})
 	case Damage:
@@ -239,18 +226,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		actions = append(actions, &StateActionChangeCounterValue{
-			player:    opponent,
-			counter:   Authority,
-			operation: Decrease,
-			value:     damage,
-		})
-		actions = append(actions, &StateActionChangeCounterValue{
-			player:    currentPlayer,
-			counter:   Combat,
-			operation: Decrease,
-			value:     damage,
-		})
+		m.changeCounterValue(opponent, Decrease, Authority, damage, &actions)
+		m.changeCounterValue(currentPlayer, Decrease, Combat, damage, &actions)
 	case Buy:
 		if len(parsed) < 2 {
 			//TODO: handle exception
@@ -262,20 +239,9 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		actions = append(actions, &StateActionMoveCard{
-			id: id,
-			to: currentPlayerDiscard,
-		})
-		actions = append(actions, &StateActionRandomCard{
-			from: TradeDeck,
-			to:   TradeRow,
-		})
-		actions = append(actions, &StateActionChangeCounterValue{
-			player:    currentPlayer,
-			counter:   Trade,
-			operation: Decrease,
-			value:     card.cost,
-		})
+		m.moveCard(id, currentPlayerDiscard, &actions)
+		m.randomCard(TradeDeck, TradeRow, &actions)
+		m.changeCounterValue(currentPlayer, Decrease, Trade, card.cost, &actions)
 	case Utilize:
 		if len(parsed) < 2 {
 			//TODO: handle exception
@@ -287,10 +253,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		actions = append(actions, &StateActionMoveCard{
-			id: id,
-			to: ScrapHeap,
-		})
+		m.moveCard(id, ScrapHeap, &actions)
 		for _, ability := range card.utilizationAbilities {
 			if ability.player == Current {
 				actions = append(actions, ability.action(currentPlayer))
@@ -309,17 +272,14 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				m.playAbilities(player, cardEntry, &actions)
 			}
 		}
-		actions = append(actions, &StateActionRequestUserAction{
-			player: currentPlayer,
-			action: None,
-		})
+		m.requestUserAction(currentPlayer, None, &actions)
 	case DestroyBase:
 		if len(parsed) < 2 {
 			//TODO: handle exception
 			return actions
 		}
-		id := parsed[1]
-		card, ok := deck[strings.Split(id, "_")[0]]
+		baseId := parsed[1]
+		card, ok := deck[strings.Split(baseId, "_")[0]]
 		if !ok {
 			//TODO: handle exception
 			return actions
@@ -328,16 +288,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		actions = append(actions, &StateActionChangeCounterValue{
-			player:    currentPlayer,
-			counter:   Combat,
-			operation: Decrease,
-			value:     card.defense,
-		})
-		actions = append(actions, &StateActionMoveCard{
-			id: id,
-			to: opponentDiscard,
-		})
+		m.changeCounterValue(currentPlayer, Decrease, Combat, card.defense, &actions)
+		m.moveCard(baseId, opponentDiscard, &actions)
 	case DiscardCard:
 		if len(parsed) < 2 {
 			//TODO: handle exception
@@ -349,27 +301,105 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		actions = append(actions, &StateActionMoveCard{
-			id: id,
-			to: currentPlayerDiscard,
-		})
-		actions = append(actions, &StateActionChangeCounterValue{
-			player:    currentPlayer,
-			counter:   Discard,
-			operation: Decrease,
-			value:     1,
-		})
+
+		m.moveCard(id, currentPlayerDiscard, &actions)
+		m.changeCounterValue(currentPlayer, Decrease, Discard, 1, &actions)
+
 		currentPlayerCounters, err := m.relativeCounters(player, CurrentPlayerCounters, state)
 		if err != nil {
 			// TODO handle exception
 			return actions
 		}
 		if currentPlayerCounters.Discard == 1 {
-			actions = append(actions, &StateActionRequestUserAction{
-				player: currentPlayer,
-				action: Start,
-			})
+			m.requestUserAction(currentPlayer, Start, &actions)
 		}
+	case ScrapCard:
+		m.scrapCard(parsed, currentPlayer, &actions)
+
+	case ScrapCardAndPlayBattleMech:
+		m.scrapCard(parsed, currentPlayer, &actions)
+
+		battleMech := &CardEntry{
+			faction:  MachineCult,
+			cardType: Ship,
+			primaryAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: changeCounter(Increase, Combat, 4),
+				},
+			},
+			allyAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: drawCard,
+				},
+			},
+			utilizationAbilities: emptyAbilities,
+		}
+		m.playAbilities(player, battleMech, &actions)
+
+	case ScrapCardAndPlayMissileBot:
+		m.scrapCard(parsed, currentPlayer, &actions)
+
+		missileBot := &CardEntry{
+			faction:  MachineCult,
+			cardType: Ship,
+			primaryAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: changeCounter(Increase, Combat, 2),
+				},
+			},
+			allyAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: changeCounter(Increase, Combat, 2),
+				},
+			},
+		}
+		m.playAbilities(player, missileBot, &actions)
+
+	case ScrapCardAndPlaySupplyBot:
+		m.scrapCard(parsed, currentPlayer, &actions)
+
+		supplyBot := &CardEntry{
+			faction:  MachineCult,
+			cardType: Ship,
+			primaryAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: changeCounter(Increase, Trade, 2),
+				},
+			},
+			allyAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: changeCounter(Increase, Combat, 2),
+				},
+			},
+		}
+		m.playAbilities(player, supplyBot, &actions)
+
+	case ScrapCardAndPlayTradeBot:
+		m.scrapCard(parsed, currentPlayer, &actions)
+
+		tradeBot := &CardEntry{
+			faction:  MachineCult,
+			cardType: Ship,
+			primaryAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: changeCounter(Increase, Trade, 1),
+				},
+			},
+			allyAbilities: []*Ability{
+				&Ability{
+					player: Current,
+					action: changeCounter(Increase, Combat, 2),
+				},
+			},
+		}
+		m.playAbilities(player, tradeBot, &actions)
 	}
 	actions = append(actions, &StateActionGetState{})
 	return actions
@@ -378,22 +408,13 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 func (m *Middleware) preparareState() []StateAction {
 	var actions []StateAction
 	for i := 1; i <= FirstPlayerHandCardsQty; i++ {
-		actions = append(actions, &StateActionRandomCard{
-			from: FirstPlayerDeck,
-			to:   FirstPlayerHand,
-		})
+		m.randomCard(FirstPlayerDeck, FirstPlayerHand, &actions)
 	}
 	for i := 1; i <= HandCardsQty; i++ {
-		actions = append(actions, &StateActionRandomCard{
-			from: SecondPlayerDeck,
-			to:   SecondPlayerHand,
-		})
+		m.randomCard(SecondPlayerDeck, SecondPlayerHand, &actions)
 	}
 	for i := 1; i <= TradeRowQty; i++ {
-		actions = append(actions, &StateActionRandomCard{
-			from: TradeDeck,
-			to:   TradeRow,
-		})
+		m.randomCard(TradeDeck, TradeRow, &actions)
 	}
 	return actions
 }
@@ -538,4 +559,53 @@ func (m *Middleware) playAbilities(player PlayerId, card *CardEntry, actions *[]
 			}
 		}
 	}
+}
+
+func (m *Middleware) moveCard(id string, to CardLocation, actions *[]StateAction) {
+	*actions = append(*actions, &StateActionMoveCard{
+		id: id,
+		to: to,
+	})
+}
+
+func (m *Middleware) changeCounterValue(player PlayerId, operation Operation, counter Counter, value int, actions *[]StateAction) {
+	*actions = append(*actions, &StateActionChangeCounterValue{
+		player:    player,
+		counter:   counter,
+		operation: operation,
+		value:     value,
+	})
+}
+
+func (m *Middleware) requestUserAction(player PlayerId, action UserAction, actions *[]StateAction) {
+	*actions = append(*actions, &StateActionRequestUserAction{
+		player: player,
+		action: action,
+	})
+}
+
+func (m *Middleware) randomCard(from CardLocation, to CardLocation, actions *[]StateAction) {
+	*actions = append(*actions, &StateActionRandomCard{
+		from: from,
+		to:   to,
+	})
+}
+
+func (m *Middleware) moveAll(from CardLocation, to CardLocation, actions *[]StateAction) {
+	*actions = append(*actions, &StateActionMoveAll{
+		from: from,
+		to:   to,
+	})
+}
+
+func (m *Middleware) scrapCard(actionData []string, player PlayerId, actions *[]StateAction) {
+	deck := *m.deck
+	if len(actionData) > 1 {
+		id := actionData[1]
+		_, ok := deck[strings.Split(id, "_")[0]]
+		if ok {
+			m.moveCard(id, ScrapHeap, actions)
+		}
+	}
+	m.requestUserAction(player, None, actions)
 }

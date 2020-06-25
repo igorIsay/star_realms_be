@@ -58,6 +58,11 @@ func getDeck() *map[string]*CardEntry {
 	deck["surveyShip"] = surveyShip()
 	deck["warWorld"] = warWorld()
 
+	deck["battleMech"] = battleMech()
+	deck["missileBot"] = missileBot()
+	deck["supplyBot"] = supplyBot()
+	deck["tradeBot"] = tradeBot()
+
 	return &deck
 }
 
@@ -68,6 +73,15 @@ func changeCounter(operation Operation, counter Counter, value int) func(PlayerI
 			counter:   counter,
 			operation: operation,
 			value:     value,
+		}
+	}
+}
+
+func actionRequest(action UserAction) func(PlayerId) StateAction {
+	return func(player PlayerId) StateAction {
+		return &StateActionRequestUserAction{
+			player: player,
+			action: action,
 		}
 	}
 }
@@ -484,5 +498,65 @@ func warWorld() *CardEntry {
 		primaryAbilities:     primaryAbilities,
 		allyAbilities:        allyAbilities,
 		utilizationAbilities: emptyAbilities,
+	}
+}
+
+func battleMech() *CardEntry {
+	return &CardEntry{
+		cost:     5,
+		qty:      1,
+		faction:  Unaligned,
+		cardType: Ship,
+		primaryAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCardAndPlayBattleMech),
+			},
+		},
+	}
+}
+
+func missileBot() *CardEntry {
+	return &CardEntry{
+		cost:     2,
+		qty:      3,
+		faction:  Unaligned,
+		cardType: Ship,
+		primaryAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCardAndPlayMissileBot),
+			},
+		},
+	}
+}
+
+func supplyBot() *CardEntry {
+	return &CardEntry{
+		cost:     3,
+		qty:      3,
+		faction:  Unaligned,
+		cardType: Ship,
+		primaryAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCardAndPlaySupplyBot),
+			},
+		},
+	}
+}
+
+func tradeBot() *CardEntry {
+	return &CardEntry{
+		cost:     1,
+		qty:      3,
+		faction:  Unaligned,
+		cardType: Ship,
+		primaryAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCardAndPlayTradeBot),
+			},
+		},
 	}
 }
