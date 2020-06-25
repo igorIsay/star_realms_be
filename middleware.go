@@ -169,6 +169,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = ScrapCard
 	case 10:
 		userAction = ScrapCardTradeRow
+	case 11:
+		userAction = DestroyBaseMissileMech
 	default:
 		//TODO: handle exception
 		return actions
@@ -361,6 +363,22 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		}
 		m.randomCard(TradeDeck, TradeRow, &actions)
 		m.requestUserAction(player, NoneAction, &actions)
+	case DestroyBaseMissileMech:
+		if len(parsed) < 2 {
+			//TODO: handle exception
+			return actions
+		}
+		baseId := parsed[1]
+		card, ok := deck[strings.Split(baseId, "_")[0]]
+		if !ok {
+			//TODO: handle exception
+			return actions
+		}
+		if card.cardType != Base {
+			//TODO: handle exception
+			return actions
+		}
+		m.moveCard(baseId, opponentDiscard, &actions)
 	}
 	for _, action := range deferredActions {
 		actions = append(actions, action)

@@ -42,6 +42,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["scout"] = scout()
 	deck["viper"] = viper()
 	deck["explorer"] = explorer()
+
 	deck["blobFighter"] = blobFighter()
 	deck["tradePod"] = tradePod()
 	deck["ram"] = ram()
@@ -62,6 +63,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["missileBot"] = missileBot()
 	deck["supplyBot"] = supplyBot()
 	deck["tradeBot"] = tradeBot()
+	deck["missileMech"] = missileMech()
 
 	return &deck
 }
@@ -589,6 +591,33 @@ func tradeBot() *CardEntry {
 			&Ability{
 				player: Current,
 				action: changeCounter(Increase, Combat, 2),
+			},
+		},
+	}
+}
+
+func missileMech() *CardEntry {
+	return &CardEntry{
+		cost:     6,
+		qty:      1,
+		faction:  MachineCult,
+		cardType: Ship,
+		beforePlay: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(DestroyBaseMissileMech),
+			},
+		},
+		primaryAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: changeCounter(Increase, Combat, 6),
+			},
+		},
+		allyAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: drawCard,
 			},
 		},
 	}
