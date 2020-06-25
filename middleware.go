@@ -167,6 +167,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = DiscardCard
 	case 9:
 		userAction = ScrapCard
+	case 10:
+		userAction = ScrapCardTradeRow
 	default:
 		//TODO: handle exception
 		return actions
@@ -348,6 +350,16 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				m.moveCard(id, ScrapHeap, &actions)
 			}
 		}
+		m.requestUserAction(player, NoneAction, &actions)
+	case ScrapCardTradeRow:
+		if len(parsed) > 1 {
+			id := parsed[1]
+			_, ok := deck[strings.Split(id, "_")[0]]
+			if ok {
+				m.moveCard(id, ScrapHeap, &actions)
+			}
+		}
+		m.randomCard(TradeDeck, TradeRow, &actions)
 		m.requestUserAction(player, NoneAction, &actions)
 	}
 	for _, action := range deferredActions {

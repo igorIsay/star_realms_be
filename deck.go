@@ -47,6 +47,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["ram"] = ram()
 	deck["theHive"] = theHive()
 	deck["blobWheel"] = blobWheel()
+	deck["battlePod"] = battlePod()
 
 	deck["corvette"] = corvette()
 	deck["dreadnaught"] = dreadnaught()
@@ -252,6 +253,33 @@ func blobWheel() *CardEntry {
 		},
 		cardType: Base,
 		defense:  5,
+	}
+}
+
+func battlePod() *CardEntry {
+	return &CardEntry{
+		cost:     2,
+		qty:      2,
+		faction:  Blob,
+		cardType: Ship,
+		beforePlay: []*Ability{
+			&Ability{
+				player: Current,
+				action: actionRequest(ScrapCardTradeRow),
+			},
+		},
+		primaryAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: changeCounter(Increase, Combat, 4),
+			},
+		},
+		allyAbilities: []*Ability{
+			&Ability{
+				player: Current,
+				action: changeCounter(Increase, Combat, 2),
+			},
+		},
 	}
 }
 

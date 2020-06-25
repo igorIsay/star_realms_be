@@ -55,6 +55,7 @@ const (
 	DestroyBase
 	DiscardCard
 	ScrapCard
+	ScrapCardTradeRow
 )
 
 func newState(deck *map[string]*CardEntry) *State {
