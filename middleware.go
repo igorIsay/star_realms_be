@@ -15,7 +15,14 @@ type Middleware struct {
 
 type AllyState struct {
 	flags     map[Faction]bool
-	abilities map[Faction]Abilities
+	abilities map[Faction]CardAbilities
+}
+
+type CardAbilities []*CardAbility
+
+type CardAbility struct {
+	cardId  string
+	ability *Ability
 }
 
 const (
@@ -66,11 +73,11 @@ func emptyAllyState() *AllyState {
 	allyFlags[MachineCult] = false
 	allyFlags[StarEmpire] = false
 	allyFlags[TradeFederation] = false
-	allyAbilitiesState := make(map[Faction]Abilities)
-	allyAbilitiesState[Blob] = []*Ability{}
-	allyAbilitiesState[MachineCult] = []*Ability{}
-	allyAbilitiesState[StarEmpire] = []*Ability{}
-	allyAbilitiesState[TradeFederation] = []*Ability{}
+	allyAbilitiesState := make(map[Faction]CardAbilities)
+	allyAbilitiesState[Blob] = []*CardAbility{}
+	allyAbilitiesState[MachineCult] = []*CardAbility{}
+	allyAbilitiesState[StarEmpire] = []*CardAbility{}
+	allyAbilitiesState[TradeFederation] = []*CardAbility{}
 	return &AllyState{
 		flags:     allyFlags,
 		abilities: allyAbilitiesState,
@@ -79,6 +86,46 @@ func emptyAllyState() *AllyState {
 
 func (m *Middleware) resetAllyState() {
 	m.allyState = emptyAllyState()
+}
+
+func (m *Middleware) activateAbility(ability *Ability, cardId string, player PlayerId, actions *[]StateAction) {
+	currentPlayer, err := m.relativePlayer(player, Current)
+	if err != nil {
+		// TODO handle error
+		log.Println(err)
+		return
+	}
+	opponent, err := m.relativePlayer(player, Opponent)
+	if err != nil {
+		// TODO handle error
+		log.Println(err)
+		return
+	}
+
+	var abilityActions []StateAction
+	if ability.player == Current {
+		abilityActions = ability.actions(currentPlayer, cardId)
+	} else {
+		abilityActions = ability.actions(opponent, cardId)
+	}
+	for _, action := range abilityActions {
+		*actions = append(*actions, action)
+	}
+}
+
+func (m *Middleware) processAbility(ability *Ability, cardId string, player PlayerId, actions *[]StateAction) {
+	switch ability.actionType {
+	case Instant:
+		m.activateAbility(ability, cardId, player, actions)
+	case Activated:
+		*actions = append(
+			*actions,
+			&StateActionAddActivatedAbility{
+				cardId:    cardId,
+				abilityId: ability.id,
+			},
+		)
+	}
 }
 
 func (m *Middleware) handle(action string, player PlayerId, state *State) []StateAction {
@@ -149,27 +196,29 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 	}
 	var userAction UserAction
 	switch parsedAction {
-	case 1:
+	case int(Play):
 		userAction = Play
-	case 2:
+	case int(End):
 		userAction = End
-	case 3:
+	case int(Damage):
 		userAction = Damage
-	case 4:
+	case int(Buy):
 		userAction = Buy
-	case 5:
+	case int(Utilize):
 		userAction = Utilize
-	case 6:
+	case int(Start):
 		userAction = Start
-	case 7:
+	case int(DestroyBase):
 		userAction = DestroyBase
-	case 8:
+	case int(DiscardCard):
 		userAction = DiscardCard
-	case 9:
+	case int(ActivateAbility):
+		userAction = ActivateAbility
+	case int(ScrapCard):
 		userAction = ScrapCard
-	case 10:
+	case int(ScrapCardTradeRow):
 		userAction = ScrapCardTradeRow
-	case 11:
+	case int(DestroyBaseMissileMech):
 		userAction = DestroyBaseMissileMech
 	default:
 		//TODO: handle exception
@@ -196,21 +245,77 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 
 			if len(card.beforePlay) > 0 {
 				for _, ability := range card.beforePlay {
-					if ability.player == Current {
-						actions = append(actions, ability.action(currentPlayer))
-					} else {
-						actions = append(actions, ability.action(opponent))
-					}
+					m.processAbility(ability, id, player, &actions)
 				}
 
 				m.deferredCall = func() []StateAction {
 					var actions []StateAction
-					m.playAbilities(player, card, &actions)
+					m.playAbilities(player, id, &actions)
 					return actions
 				}
 			} else {
-				m.playAbilities(player, card, &actions)
+				m.playAbilities(player, id, &actions)
 			}
+		}
+
+	case ActivateAbility:
+		if len(parsed) < 3 {
+			//TODO: handle exception
+			return actions
+		}
+		id := parsed[1]
+		card, ok := deck[strings.Split(id, "_")[0]]
+		if ok {
+			parsedAbilityId, err := strconv.Atoi(parsed[2])
+			if err != nil {
+				//TODO: handle exception
+				return actions
+			}
+
+			var abilityId AbilityId
+			switch parsedAbilityId {
+			case int(Utilization):
+				abilityId = Utilization
+			case int(PatrolMechTrade):
+				abilityId = PatrolMechTrade
+			case int(PatrolMechCombat):
+				abilityId = PatrolMechCombat
+			case int(PatrolMechScrap):
+				abilityId = PatrolMechScrap
+			default:
+				return actions
+			}
+
+			for _, ability := range card.abilities {
+				if ability.id == abilityId {
+					m.activateAbility(ability, id, player, &actions)
+
+					if ability.id == Utilization {
+						m.moveCard(id, ScrapHeap, &actions)
+						// Update AllyState after utilization
+						foundSameFactionCard := false
+						for cardId, c := range state.Cards {
+							if cardId != id &&
+								(c.Location == currentTable || c.Location == currentBases) &&
+								deck[strings.Split(cardId, "_")[0]].faction == card.faction {
+
+								foundSameFactionCard = true
+							}
+						}
+						if foundSameFactionCard == false {
+							m.allyState.flags[card.faction] = false
+							m.allyState.abilities[card.faction] = []*CardAbility{}
+						}
+					}
+				}
+			}
+			actions = append(
+				actions,
+				&StateActionDisableActivatedAbility{
+					cardId:    id,
+					abilityId: abilityId,
+				},
+			)
 		}
 
 	case End:
@@ -231,6 +336,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		} else {
 			m.requestUserAction(opponent, Start, &actions)
 		}
+		actions = append(actions, &StateActionResetActivatedAbilities{})
 		actions = append(actions, &StateActionChangeTurn{})
 	case Damage:
 		if len(parsed) < 2 {
@@ -258,49 +364,42 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		m.moveCard(id, currentDiscard, &actions)
 		m.randomCard(TradeDeck, TradeRow, &actions)
 		m.changeCounterValue(currentPlayer, Decrease, Trade, card.cost, &actions)
-	case Utilize:
-		if len(parsed) < 2 {
-			//TODO: handle exception
-			return actions
-		}
-		id := parsed[1]
-		card, ok := deck[strings.Split(id, "_")[0]]
-		if !ok {
-			//TODO: handle exception
-			return actions
-		}
-		m.moveCard(id, ScrapHeap, &actions)
-		for _, ability := range card.utilizationAbilities {
-			if ability.player == Current {
-				actions = append(actions, ability.action(currentPlayer))
-			} else {
-				actions = append(actions, ability.action(opponent))
-			}
-		}
-
-		// Upade AllyState after utilization
-		foundSameFactionCard := false
-		for cardId, c := range state.Cards {
-			if cardId != id &&
-				(c.Location == currentTable || c.Location == currentBases) &&
-				deck[strings.Split(cardId, "_")[0]].faction == card.faction {
-
-				foundSameFactionCard = true
-			}
-		}
-		if foundSameFactionCard == false {
-			m.allyState.flags[card.faction] = false
-			m.allyState.abilities[card.faction] = []*Ability{}
-		}
-	case Start:
-		for cardId, card := range state.Cards {
-			if card.Location == currentBases {
-				cardEntry, ok := deck[strings.Split(cardId, "_")[0]]
+		/*
+			case Utilize:
+				if len(parsed) < 2 {
+					//TODO: handle exception
+					return actions
+				}
+				id := parsed[1]
+				card, ok := deck[strings.Split(id, "_")[0]]
 				if !ok {
 					//TODO: handle exception
 					return actions
 				}
-				m.playAbilities(player, cardEntry, &actions)
+				m.moveCard(id, ScrapHeap, &actions)
+				for _, ability := range card.utilizationAbilities {
+					m.processAbility(ability, id, player, &actions)
+				}
+
+				// Upade AllyState after utilization
+				foundSameFactionCard := false
+				for cardId, c := range state.Cards {
+					if cardId != id &&
+						(c.Location == currentTable || c.Location == currentBases) &&
+						deck[strings.Split(cardId, "_")[0]].faction == card.faction {
+
+						foundSameFactionCard = true
+					}
+				}
+				if foundSameFactionCard == false {
+					m.allyState.flags[card.faction] = false
+					m.allyState.abilities[card.faction] = []*Ability{}
+				}
+		*/
+	case Start:
+		for cardId, card := range state.Cards {
+			if card.Location == currentBases {
+				m.playAbilities(player, cardId, &actions)
 			}
 		}
 		m.requestUserAction(currentPlayer, NoneAction, &actions)
@@ -512,49 +611,34 @@ func (m *Middleware) relativeCounters(player PlayerId, countersPointer CountersP
 	}
 }
 
-func (m *Middleware) playAbilities(player PlayerId, card *CardEntry, actions *[]StateAction) {
-	currentPlayer, err := m.relativePlayer(player, Current)
-	if err != nil {
-		// TODO handle error
-		log.Println(err)
-		return
-	}
-	opponent, err := m.relativePlayer(player, Opponent)
-	if err != nil {
-		// TODO handle error
-		log.Println(err)
-		return
-	}
-
-	for _, ability := range card.primaryAbilities {
-		if ability.player == Current {
-			*actions = append(*actions, ability.action(currentPlayer))
-		} else {
-			*actions = append(*actions, ability.action(opponent))
-		}
-	}
-	allyActivated, ok := m.allyState.flags[card.faction]
+func (m *Middleware) playAbilities(player PlayerId, cardId string, actions *[]StateAction) {
+	deck := *m.deck
+	card, ok := deck[strings.Split(cardId, "_")[0]]
 	if ok {
-		if allyActivated {
-			for _, ability := range card.allyAbilities {
-				if ability.player == Current {
-					*actions = append(*actions, ability.action(currentPlayer))
-				} else {
-					*actions = append(*actions, ability.action(opponent))
-				}
+		allyAbilities := []*CardAbility{}
+		for _, ability := range card.abilities {
+			switch ability.group {
+			case Primary:
+				m.processAbility(ability, cardId, player, actions)
+			case Ally:
+				allyAbilities = append(allyAbilities, &CardAbility{ability: ability, cardId: cardId})
 			}
-			for _, ability := range m.allyState.abilities[card.faction] {
-				if ability.player == Current {
-					*actions = append(*actions, ability.action(currentPlayer))
-				} else {
-					*actions = append(*actions, ability.action(opponent))
+		}
+		allyActivated, ok := m.allyState.flags[card.faction]
+		if ok {
+			if allyActivated {
+				for _, cardAbility := range allyAbilities {
+					m.processAbility(cardAbility.ability, cardAbility.cardId, player, actions)
 				}
-			}
-			m.allyState.abilities[card.faction] = []*Ability{}
-		} else {
-			m.allyState.flags[card.faction] = true
-			for _, ability := range card.allyAbilities {
-				m.allyState.abilities[card.faction] = append(m.allyState.abilities[card.faction], ability)
+				for _, cardAbility := range m.allyState.abilities[card.faction] {
+					m.processAbility(cardAbility.ability, cardAbility.cardId, player, actions)
+				}
+				m.allyState.abilities[card.faction] = []*CardAbility{}
+			} else {
+				m.allyState.flags[card.faction] = true
+				for _, cardAbility := range allyAbilities {
+					m.allyState.abilities[card.faction] = append(m.allyState.abilities[card.faction], cardAbility)
+				}
 			}
 		}
 	}

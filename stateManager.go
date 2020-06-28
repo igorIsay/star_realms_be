@@ -20,6 +20,9 @@ const (
 	GetState
 	ChangeTurn
 	RequestUserAction
+	AddActivatedAbility
+	DisableActivatedAbility
+	ResetActivatedAbilities
 )
 
 type PlayerId int
@@ -144,6 +147,7 @@ func (s *StateActionChangeTurn) Data() map[string]interface{} {
 type StateActionRequestUserAction struct {
 	player PlayerId
 	action UserAction
+	cardId string
 }
 
 func (s *StateActionRequestUserAction) Type() StateActionType {
@@ -154,6 +158,39 @@ func (s *StateActionRequestUserAction) Data() map[string]interface{} {
 	data := make(map[string]interface{})
 	data["player"] = s.player
 	data["action"] = s.action
+	data["cardId"] = s.cardId
+	return data
+}
+
+type StateActionAddActivatedAbility struct {
+	cardId    string
+	abilityId AbilityId
+}
+
+func (s *StateActionAddActivatedAbility) Type() StateActionType {
+	return AddActivatedAbility
+}
+
+func (s *StateActionAddActivatedAbility) Data() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["cardId"] = s.cardId
+	data["abilityId"] = s.abilityId
+	return data
+}
+
+type StateActionDisableActivatedAbility struct {
+	cardId    string
+	abilityId AbilityId
+}
+
+func (s *StateActionDisableActivatedAbility) Type() StateActionType {
+	return DisableActivatedAbility
+}
+
+func (s *StateActionDisableActivatedAbility) Data() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["cardId"] = s.cardId
+	data["abilityId"] = s.abilityId
 	return data
 }
 
@@ -163,6 +200,17 @@ func newStateManager(deck *map[string]*CardEntry) *StateManager {
 		action: make(chan StateAction),
 		json:   make(chan []byte),
 	}
+}
+
+type StateActionResetActivatedAbilities struct{}
+
+func (s *StateActionResetActivatedAbilities) Type() StateActionType {
+	return ResetActivatedAbilities
+}
+
+func (s *StateActionResetActivatedAbilities) Data() map[string]interface{} {
+	data := make(map[string]interface{})
+	return data
 }
 
 func (s *StateManager) run() {
@@ -237,12 +285,37 @@ func (s *StateManager) run() {
 			data := action.Data()
 			player := data["player"].(PlayerId)
 			userAction := data["action"].(UserAction)
+			cardId := data["cardId"].(string)
+			actionRequest := ActionRequest{
+				Action: userAction,
+				CardId: cardId,
+			}
 			switch player {
 			case FirstPlayer:
-				s.state.FirstPlayerActionRequest = userAction
+				s.state.FirstPlayerActionRequest = actionRequest
 			case SecondPlayer:
-				s.state.SecondPlayerActionRequest = userAction
+				s.state.SecondPlayerActionRequest = actionRequest
 			}
+		case AddActivatedAbility:
+			data := action.Data()
+			cardId := data["cardId"].(string)
+			abilityId := data["abilityId"].(AbilityId)
+			abilities, ok := s.state.ActivatedAbilities[cardId]
+			if !ok {
+				s.state.ActivatedAbilities[cardId] = make(map[AbilityId]bool)
+				abilities, _ = s.state.ActivatedAbilities[cardId]
+			}
+			abilities[abilityId] = true
+		case DisableActivatedAbility:
+			data := action.Data()
+			cardId := data["cardId"].(string)
+			abilityId := data["abilityId"].(AbilityId)
+			abilities, ok := s.state.ActivatedAbilities[cardId]
+			if ok {
+				abilities[abilityId] = false
+			}
+		case ResetActivatedAbilities:
+			s.state.ActivatedAbilities = make(map[string]ActivatedAbilities)
 		case GetState:
 			state, _ := json.Marshal(s.state)
 			s.json <- state

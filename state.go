@@ -3,13 +3,16 @@ package main
 import "fmt"
 
 type State struct {
-	Turn                      PlayerId         `json:"turn"`
-	FirstPlayerCounters       Counters         `json:"firstPlayerCounters"`
-	SecondPlayerCounters      Counters         `json:"secondPlayerCounters"`
-	Cards                     map[string]*Card `json:"cards"`
-	FirstPlayerActionRequest  UserAction       `json:"firstPlayerActionRequest"`
-	SecondPlayerActionRequest UserAction       `json:"secondPlayerActionRequest"`
+	Turn                      PlayerId                      `json:"turn"`
+	FirstPlayerCounters       Counters                      `json:"firstPlayerCounters"`
+	SecondPlayerCounters      Counters                      `json:"secondPlayerCounters"`
+	Cards                     map[string]*Card              `json:"cards"`
+	FirstPlayerActionRequest  ActionRequest                 `json:"firstPlayerActionRequest"`
+	SecondPlayerActionRequest ActionRequest                 `json:"secondPlayerActionRequest"`
+	ActivatedAbilities        map[string]ActivatedAbilities `json:"activatedAbilities"`
 }
+
+type ActivatedAbilities map[AbilityId]bool
 
 type Card struct {
 	Location CardLocation
@@ -54,10 +57,16 @@ const (
 	Start
 	DestroyBase
 	DiscardCard
+	ActivateAbility
 	ScrapCard
 	ScrapCardTradeRow
 	DestroyBaseMissileMech
 )
+
+type ActionRequest struct {
+	Action UserAction `json:"action"`
+	CardId string     `json:"cardId"`
+}
 
 func newState(deck *map[string]*CardEntry) *State {
 	const initialAuthority int = 50
@@ -71,8 +80,9 @@ func newState(deck *map[string]*CardEntry) *State {
 			Authority: initialAuthority,
 		},
 		Cards: cards,
-		FirstPlayerActionRequest:  NoneAction,
-		SecondPlayerActionRequest: NoneAction,
+		FirstPlayerActionRequest:  ActionRequest{},
+		SecondPlayerActionRequest: ActionRequest{},
+		ActivatedAbilities:        make(map[string]ActivatedAbilities),
 	}
 }
 

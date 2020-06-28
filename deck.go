@@ -17,23 +17,49 @@ const (
 	Base
 )
 
+type AbilityActionType int
+
+const (
+	Instant AbilityActionType = iota
+	Activated
+)
+
+type AbilityId int
+
+const (
+	DefaultAbility AbilityId = iota
+	Utilization
+	PatrolMechTrade
+	PatrolMechCombat
+	PatrolMechScrap
+)
+
+type AbilityGroup int
+
+const (
+	Primary AbilityGroup = iota
+	Ally
+	BeforePlay
+)
+
 type Abilities []*Ability
 
 type Ability struct {
-	player PlayerPointer
-	action func(PlayerId) StateAction
+	group      AbilityGroup
+	actionType AbilityActionType
+	id         AbilityId
+	player     PlayerPointer
+	actions    func(PlayerId, string) []StateAction
 }
 
 type CardEntry struct {
-	cost                 int
-	qty                  int
-	defense              int
-	faction              Faction
-	beforePlay           Abilities
-	primaryAbilities     Abilities
-	utilizationAbilities Abilities
-	allyAbilities        Abilities
-	cardType             CardType
+	cost       int
+	qty        int
+	defense    int
+	faction    Faction
+	beforePlay Abilities
+	abilities  Abilities
+	cardType   CardType
 }
 
 func getDeck() *map[string]*CardEntry {
@@ -62,36 +88,44 @@ func getDeck() *map[string]*CardEntry {
 	deck["battleMech"] = battleMech()
 	deck["missileBot"] = missileBot()
 	deck["supplyBot"] = supplyBot()
-	deck["tradeBot"] = tradeBot()
 	deck["missileMech"] = missileMech()
+	deck["tradeBot"] = tradeBot()
+	deck["patrolMech"] = patrolMech()
 
 	return &deck
 }
 
-func changeCounter(operation Operation, counter Counter, value int) func(PlayerId) StateAction {
-	return func(player PlayerId) StateAction {
-		return &StateActionChangeCounterValue{
-			player:    player,
-			counter:   counter,
-			operation: operation,
-			value:     value,
+func changeCounter(operation Operation, counter Counter, value int) func(PlayerId, string) []StateAction {
+	return func(player PlayerId, cardId string) []StateAction {
+		return []StateAction{
+			&StateActionChangeCounterValue{
+				player:    player,
+				counter:   counter,
+				operation: operation,
+				value:     value,
+			},
 		}
 	}
 }
 
-func actionRequest(action UserAction) func(PlayerId) StateAction {
-	return func(player PlayerId) StateAction {
-		return &StateActionRequestUserAction{
-			player: player,
-			action: action,
+func actionRequest(action UserAction) func(PlayerId, string) []StateAction {
+	return func(player PlayerId, cardId string) []StateAction {
+		return []StateAction{
+			&StateActionRequestUserAction{
+				player: player,
+				action: action,
+				cardId: cardId,
+			},
 		}
 	}
 }
 
-func drawCard(player PlayerId) StateAction {
-	return &StateActionRandomCard{
-		from: playerDeckMapper(player, Deck),
-		to:   playerDeckMapper(player, Hand),
+func drawCard(player PlayerId, cardId string) []StateAction {
+	return []StateAction{
+		&StateActionRandomCard{
+			from: playerDeckMapper(player, Deck),
+			to:   playerDeckMapper(player, Hand),
+		},
 	}
 }
 
@@ -99,10 +133,11 @@ func scout() *CardEntry {
 	return &CardEntry{
 		qty:     16,
 		faction: Unaligned,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 1),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 1),
 			},
 		},
 		cardType: Ship,
@@ -113,10 +148,11 @@ func viper() *CardEntry {
 	return &CardEntry{
 		qty:     4,
 		faction: Unaligned,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 1),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 1),
 			},
 		},
 		cardType: Ship,
@@ -128,16 +164,18 @@ func explorer() *CardEntry {
 		cost:    2,
 		qty:     10,
 		faction: Unaligned,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 2),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 2),
 			},
-		},
-		utilizationAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Combat, 2),
 			},
 		},
 		cardType: Ship,
@@ -149,16 +187,16 @@ func blobFighter() *CardEntry {
 		cost:    1,
 		qty:     3,
 		faction: Blob,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 3),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 3),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
 			},
 		},
 		cardType: Ship,
@@ -170,16 +208,16 @@ func tradePod() *CardEntry {
 		cost:    2,
 		qty:     2,
 		faction: Blob,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 3),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 3),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 		cardType: Ship,
@@ -191,22 +229,23 @@ func ram() *CardEntry {
 		cost:    3,
 		qty:     2,
 		faction: Blob,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 5),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 5),
 			},
-		},
-		utilizationAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 3),
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Trade, 3),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 		cardType: Ship,
@@ -219,16 +258,16 @@ func theHive() *CardEntry {
 		cost:    5,
 		qty:     1,
 		faction: Blob,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 3),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 3),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
 			},
 		},
 		cardType: Base,
@@ -241,16 +280,18 @@ func blobWheel() *CardEntry {
 		cost:    3,
 		qty:     3,
 		faction: Blob,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 1),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 1),
 			},
-		},
-		utilizationAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 3),
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Trade, 3),
 			},
 		},
 		cardType: Base,
@@ -266,20 +307,21 @@ func battlePod() *CardEntry {
 		cardType: Ship,
 		beforePlay: []*Ability{
 			&Ability{
-				player: Current,
-				action: actionRequest(ScrapCardTradeRow),
+				group:   BeforePlay,
+				player:  Current,
+				actions: actionRequest(ScrapCardTradeRow),
 			},
 		},
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 4),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 4),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 	}
@@ -290,20 +332,21 @@ func imperialFighter() *CardEntry {
 		cost:    1,
 		qty:     3,
 		faction: StarEmpire,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 			&Ability{
-				player: Opponent,
-				action: changeCounter(Increase, Discard, 1),
+				group:   Primary,
+				player:  Opponent,
+				actions: changeCounter(Increase, Discard, 1),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 		cardType: Ship,
@@ -315,26 +358,28 @@ func imperialFrigate() *CardEntry {
 		cost:    1,
 		qty:     3,
 		faction: StarEmpire,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 4),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 4),
 			},
 			&Ability{
-				player: Opponent,
-				action: changeCounter(Increase, Discard, 1),
+				group:   Primary,
+				player:  Opponent,
+				actions: changeCounter(Increase, Discard, 1),
 			},
-		},
-		utilizationAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    drawCard,
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 		cardType: Ship,
@@ -346,20 +391,21 @@ func corvette() *CardEntry {
 		cost:    2,
 		qty:     2,
 		faction: StarEmpire,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 1),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 1),
 			},
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 		cardType: Ship,
@@ -371,20 +417,23 @@ func dreadnaught() *CardEntry {
 		cost:    7,
 		qty:     1,
 		faction: StarEmpire,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 7),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 7),
 			},
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
 			},
-		},
-		utilizationAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 5),
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Combat, 5),
 			},
 		},
 		cardType: Ship,
@@ -398,16 +447,16 @@ func royalRedoubt() *CardEntry {
 		faction:  StarEmpire,
 		cardType: Base,
 		defense:  6,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 3),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 3),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Opponent,
-				action: changeCounter(Increase, Discard, 1),
+				group:   Ally,
+				player:  Opponent,
+				actions: changeCounter(Increase, Discard, 1),
 			},
 		},
 	}
@@ -420,22 +469,23 @@ func spaceStation() *CardEntry {
 		faction:  StarEmpire,
 		cardType: Base,
 		defense:  4,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
-		},
-		utilizationAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 4),
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Trade, 4),
 			},
 		},
 	}
@@ -447,20 +497,23 @@ func surveyShip() *CardEntry {
 		qty:      3,
 		faction:  StarEmpire,
 		cardType: Ship,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 1),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 1),
 			},
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
 			},
-		},
-		utilizationAbilities: []*Ability{
 			&Ability{
-				player: Opponent,
-				action: changeCounter(Increase, Discard, 1),
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Opponent,
+				actions:    changeCounter(Increase, Discard, 1),
 			},
 		},
 	}
@@ -473,16 +526,16 @@ func warWorld() *CardEntry {
 		faction:  StarEmpire,
 		cardType: Base,
 		defense:  4,
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 3),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 3),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 4),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 4),
 			},
 		},
 	}
@@ -496,20 +549,21 @@ func battleMech() *CardEntry {
 		cardType: Ship,
 		beforePlay: []*Ability{
 			&Ability{
-				player: Current,
-				action: actionRequest(ScrapCard),
+				group:   BeforePlay,
+				player:  Current,
+				actions: actionRequest(ScrapCard),
 			},
 		},
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 4),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 4),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
 			},
 		},
 	}
@@ -523,20 +577,21 @@ func missileBot() *CardEntry {
 		cardType: Ship,
 		beforePlay: []*Ability{
 			&Ability{
-				player: Current,
-				action: actionRequest(ScrapCard),
+				group:   BeforePlay,
+				player:  Current,
+				actions: actionRequest(ScrapCard),
 			},
 		},
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 	}
@@ -550,20 +605,21 @@ func supplyBot() *CardEntry {
 		cardType: Ship,
 		beforePlay: []*Ability{
 			&Ability{
-				player: Current,
-				action: actionRequest(ScrapCard),
+				group:   BeforePlay,
+				player:  Current,
+				actions: actionRequest(ScrapCard),
 			},
 		},
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 2),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 2),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 	}
@@ -577,20 +633,21 @@ func tradeBot() *CardEntry {
 		cardType: Ship,
 		beforePlay: []*Ability{
 			&Ability{
-				player: Current,
-				action: actionRequest(ScrapCard),
+				group:   BeforePlay,
+				player:  Current,
+				actions: actionRequest(ScrapCard),
 			},
 		},
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Trade, 1),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 1),
 			},
-		},
-		allyAbilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 2),
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
 			},
 		},
 	}
@@ -604,20 +661,92 @@ func missileMech() *CardEntry {
 		cardType: Ship,
 		beforePlay: []*Ability{
 			&Ability{
-				player: Current,
-				action: actionRequest(DestroyBaseMissileMech),
+				group:   BeforePlay,
+				player:  Current,
+				actions: actionRequest(DestroyBaseMissileMech),
 			},
 		},
-		primaryAbilities: []*Ability{
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: changeCounter(Increase, Combat, 6),
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 6),
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
 			},
 		},
-		allyAbilities: []*Ability{
+	}
+}
+
+func patrolMech() *CardEntry {
+	return &CardEntry{
+		cost:     4,
+		qty:      2,
+		faction:  MachineCult,
+		cardType: Ship,
+		abilities: []*Ability{
 			&Ability{
-				player: Current,
-				action: drawCard,
+				group:   Primary,
+				player:  Current,
+				actions: actionRequest(ActivateAbility),
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         PatrolMechTrade,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Trade,
+							operation: Increase,
+							value:     3,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: PatrolMechCombat,
+						},
+						&StateActionRequestUserAction{
+							player: player,
+							action: NoneAction,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         PatrolMechCombat,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Combat,
+							operation: Increase,
+							value:     5,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: PatrolMechTrade,
+						},
+						&StateActionRequestUserAction{
+							player: player,
+							action: NoneAction,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Ally,
+				actionType: Activated,
+				id:         PatrolMechScrap,
+				player:     Current,
+				actions:    actionRequest(ScrapCard),
 			},
 		},
 	}
