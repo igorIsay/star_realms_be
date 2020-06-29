@@ -37,7 +37,7 @@ func (h *Hub) run() {
 
 	go stateManager.run()
 	go h.broadcast(&stateManager.json)
-	pActions := middleware.preparareState()
+	pActions := middleware.prepareState()
 	for _, a := range pActions {
 		stateManager.action <- a
 	}

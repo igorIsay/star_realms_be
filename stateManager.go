@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"math/rand"
+	"time"
 )
 
 type StateManager struct {
@@ -14,7 +16,7 @@ type StateActionType int
 
 const (
 	ChangeCounterValue StateActionType = iota
-	RandomCard
+	TopCard
 	MoveCard
 	MoveAll
 	GetState
@@ -23,6 +25,7 @@ const (
 	AddActivatedAbility
 	DisableActivatedAbility
 	ResetActivatedAbilities
+	ShuffleDeck
 )
 
 type PlayerId int
@@ -74,19 +77,33 @@ func (s *StateActionChangeCounterValue) Data() map[string]interface{} {
 	return data
 }
 
-type StateActionRandomCard struct {
+type StateActionTopCard struct {
 	from CardLocation
 	to   CardLocation
 }
 
-func (s *StateActionRandomCard) Type() StateActionType {
-	return RandomCard
+func (s *StateActionTopCard) Type() StateActionType {
+	return TopCard
 }
 
-func (s *StateActionRandomCard) Data() map[string]interface{} {
+func (s *StateActionTopCard) Data() map[string]interface{} {
 	data := make(map[string]interface{})
 	data["from"] = s.from
 	data["to"] = s.to
+	return data
+}
+
+type StateActionShuffleDeck struct {
+	deck CardLocation
+}
+
+func (s *StateActionShuffleDeck) Type() StateActionType {
+	return ShuffleDeck
+}
+
+func (s *StateActionShuffleDeck) Data() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["deck"] = s.deck
 	return data
 }
 
@@ -233,39 +250,56 @@ func (s *StateManager) run() {
 			counters[Combat] = &c.Combat
 			counters[Discard] = &c.Discard
 			calc(counters[counter], value, operation)
-		case RandomCard:
+		case TopCard:
 			data := action.Data()
 			from := data["from"].(CardLocation)
 			to := data["to"].(CardLocation)
 			deck := s.cardsByLocation(from)
-			if len(deck) == 0 {
+			if len(deck) == 0 && (from == FirstPlayerDeck || from == SecondPlayerDeck) {
 				if from == FirstPlayerDeck {
 					discard := s.cardsByLocation(FirstPlayerDiscard)
 					for _, c := range discard {
+						s.state.lastIndex[c.Location] -= 1
+						s.state.lastIndex[FirstPlayerDeck] += 1
 						c.Location = FirstPlayerDeck
+						c.index = s.state.lastIndex[FirstPlayerDeck]
 					}
 				}
 				if from == SecondPlayerDeck {
 					discard := s.cardsByLocation(SecondPlayerDiscard)
 					for _, c := range discard {
+						s.state.lastIndex[c.Location] -= 1
+						s.state.lastIndex[SecondPlayerDeck] += 1
 						c.Location = SecondPlayerDeck
+						c.index = s.state.lastIndex[SecondPlayerDeck]
 					}
 				}
 				deck = s.cardsByLocation(from)
+				s.shuffle(deck)
 			}
-			card, ok := randomCard(deck)
-			if ok {
-				card.Location = to
-			} else {
-				//TODO: handle exception
+			for _, card := range deck {
+				if card.index == s.state.lastIndex[card.Location] {
+					s.state.lastIndex[card.Location] -= 1
+					s.state.lastIndex[to] += 1
+					card.Location = to
+					card.index = s.state.lastIndex[to]
+					break
+				}
 			}
+		case ShuffleDeck:
+			data := action.Data()
+			deck := data["deck"].(CardLocation)
+			s.shuffle(s.cardsByLocation(deck))
 		case MoveCard:
 			data := action.Data()
 			id := data["id"].(string)
 			to := data["to"].(CardLocation)
 			card, ok := s.cardById(id)
 			if ok {
+				s.state.lastIndex[card.Location] -= 1
+				s.state.lastIndex[to] += 1
 				card.Location = to
+				card.index = s.state.lastIndex[to]
 			}
 		case MoveAll:
 			data := action.Data()
@@ -273,7 +307,10 @@ func (s *StateManager) run() {
 			to := data["to"].(CardLocation)
 			cards := s.cardsByLocation(from)
 			for _, card := range cards {
+				s.state.lastIndex[card.Location] -= 1
+				s.state.lastIndex[to] += 1
 				card.Location = to
+				card.index = s.state.lastIndex[to]
 			}
 		case ChangeTurn:
 			if s.state.Turn == FirstPlayer {
@@ -338,11 +375,23 @@ func (s *StateManager) cardsByLocation(l CardLocation) map[string]*Card {
 	return result
 }
 
-func randomCard(deck map[string]*Card) (*Card, bool) {
+func (s *StateManager) shuffle(deck map[string]*Card) {
+	indexes := []int{}
 	for _, card := range deck {
-		return card, true
+		indexes = append(indexes, card.index)
 	}
-	return nil, false
+	rand.Seed(time.Now().Unix())
+	for _, card := range deck {
+		idx := rand.Intn(len(indexes))
+		card.index = indexes[idx]
+		indexes = removeFromSlice(indexes, idx)
+	}
+
+}
+
+func removeFromSlice(s []int, i int) []int {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
 }
 
 func calc(a *int, b int, operation Operation) {

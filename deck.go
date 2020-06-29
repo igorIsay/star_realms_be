@@ -122,7 +122,7 @@ func actionRequest(action UserAction) func(PlayerId, string) []StateAction {
 
 func drawCard(player PlayerId, cardId string) []StateAction {
 	return []StateAction{
-		&StateActionRandomCard{
+		&StateActionTopCard{
 			from: playerDeckMapper(player, Deck),
 			to:   playerDeckMapper(player, Hand),
 		},
