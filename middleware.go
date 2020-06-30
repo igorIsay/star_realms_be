@@ -220,6 +220,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = ScrapCardTradeRow
 	case int(DestroyBaseMissileMech):
 		userAction = DestroyBaseMissileMech
+	case int(AcquireShipForFree):
+		userAction = AcquireShipForFree
 	default:
 		//TODO: handle exception
 		return actions
@@ -282,6 +284,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				abilityId = PatrolMechCombat
 			case int(PatrolMechScrap):
 				abilityId = PatrolMechScrap
+			case int(BlobCarrierAcquire):
+				abilityId = BlobCarrierAcquire
 			default:
 				return actions
 			}
@@ -449,6 +453,28 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			return actions
 		}
 		m.moveCard(baseId, opponentDiscard, &actions)
+		m.requestUserAction(player, NoneAction, &actions)
+	case AcquireShipForFree:
+		if len(parsed) < 2 {
+			//TODO: handle exception
+			return actions
+		}
+		id := parsed[1]
+		cardEntryId := strings.Split(id, "_")[0]
+		card, ok := deck[cardEntryId]
+		if !ok {
+			//TODO: handle exception
+			return actions
+		}
+		if card.cardType != Ship {
+			//TODO: handle exception
+			return actions
+		}
+		m.moveCard(id, currentDeck, &actions)
+		if cardEntryId != "explorer" {
+			m.topCard(TradeDeck, TradeRow, &actions)
+		}
+		m.requestUserAction(player, NoneAction, &actions)
 	}
 	for _, action := range deferredActions {
 		actions = append(actions, action)

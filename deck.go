@@ -32,6 +32,7 @@ const (
 	PatrolMechTrade
 	PatrolMechCombat
 	PatrolMechScrap
+	BlobCarrierAcquire
 )
 
 type AbilityGroup int
@@ -75,6 +76,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["theHive"] = theHive()
 	deck["blobWheel"] = blobWheel()
 	deck["battlePod"] = battlePod()
+	deck["blobCarrier"] = blobCarrier()
 
 	deck["corvette"] = corvette()
 	deck["dreadnaught"] = dreadnaught()
@@ -322,6 +324,29 @@ func battlePod() *CardEntry {
 				group:   Ally,
 				player:  Current,
 				actions: changeCounter(Increase, Combat, 2),
+			},
+		},
+	}
+}
+
+func blobCarrier() *CardEntry {
+	return &CardEntry{
+		cost:     6,
+		qty:      1,
+		faction:  Blob,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 7),
+			},
+			&Ability{
+				group:      Ally,
+				actionType: Activated,
+				id:         BlobCarrierAcquire,
+				player:     Current,
+				actions:    actionRequest(AcquireShipForFree),
 			},
 		},
 	}

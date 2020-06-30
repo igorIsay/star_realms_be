@@ -12,7 +12,6 @@ type State struct {
 	ActivatedAbilities        map[string]ActivatedAbilities `json:"activatedAbilities"`
 	lastIndex                 map[CardLocation]int
 }
-
 type ActivatedAbilities map[AbilityId]bool
 
 type Card struct {
@@ -63,6 +62,7 @@ const (
 	ScrapCard
 	ScrapCardTradeRow
 	DestroyBaseMissileMech
+	AcquireShipForFree
 )
 
 type ActionRequest struct {
@@ -140,9 +140,9 @@ func cardsInitialSet(deck *map[string]*CardEntry, lastIndex map[CardLocation]int
 				}
 			}
 		default:
-			lastIndex[TradeDeck] += 1
 			for i := 1; i <= card.qty; i++ {
 				id := fmt.Sprintf("%s_%d", key, i)
+				lastIndex[TradeDeck] += 1
 				cards[id] = &Card{
 					Location: TradeDeck,
 					index:    lastIndex[TradeDeck],
