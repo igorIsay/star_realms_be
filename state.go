@@ -63,6 +63,7 @@ const (
 	ScrapCardTradeRow
 	DestroyBaseMissileMech
 	AcquireShipForFree
+	DestroyBaseBlobDestroyer
 )
 
 type ActionRequest struct {

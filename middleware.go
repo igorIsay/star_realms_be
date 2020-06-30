@@ -222,6 +222,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = DestroyBaseMissileMech
 	case int(AcquireShipForFree):
 		userAction = AcquireShipForFree
+	case int(DestroyBaseBlobDestroyer):
+		userAction = DestroyBaseBlobDestroyer
 	default:
 		//TODO: handle exception
 		return actions
@@ -286,6 +288,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				abilityId = PatrolMechScrap
 			case int(BlobCarrierAcquire):
 				abilityId = BlobCarrierAcquire
+			case int(BlobDestroyerDestroyBase):
+				abilityId = BlobDestroyerDestroyBase
 			default:
 				return actions
 			}
@@ -434,26 +438,39 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			if ok {
 				m.moveCard(id, ScrapHeap, &actions)
 			}
+			m.topCard(TradeDeck, TradeRow, &actions)
 		}
-		m.topCard(TradeDeck, TradeRow, &actions)
 		m.requestUserAction(player, NoneAction, &actions)
 	case DestroyBaseMissileMech:
-		if len(parsed) < 2 {
-			//TODO: handle exception
-			return actions
+		if len(parsed) > 1 {
+			baseId := parsed[1]
+			card, ok := deck[strings.Split(baseId, "_")[0]]
+			if !ok {
+				//TODO: handle exception
+				return actions
+			}
+			if card.cardType != Base {
+				//TODO: handle exception
+				return actions
+			}
+			m.moveCard(baseId, opponentDiscard, &actions)
 		}
-		baseId := parsed[1]
-		card, ok := deck[strings.Split(baseId, "_")[0]]
-		if !ok {
-			//TODO: handle exception
-			return actions
-		}
-		if card.cardType != Base {
-			//TODO: handle exception
-			return actions
-		}
-		m.moveCard(baseId, opponentDiscard, &actions)
 		m.requestUserAction(player, NoneAction, &actions)
+	case DestroyBaseBlobDestroyer:
+		if len(parsed) > 1 {
+			baseId := parsed[1]
+			card, ok := deck[strings.Split(baseId, "_")[0]]
+			if !ok {
+				//TODO: handle exception
+				return actions
+			}
+			if card.cardType != Base {
+				//TODO: handle exception
+				return actions
+			}
+			m.moveCard(baseId, opponentDiscard, &actions)
+		}
+		m.requestUserAction(player, ScrapCardTradeRow, &actions)
 	case AcquireShipForFree:
 		if len(parsed) < 2 {
 			//TODO: handle exception

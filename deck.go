@@ -33,6 +33,7 @@ const (
 	PatrolMechCombat
 	PatrolMechScrap
 	BlobCarrierAcquire
+	BlobDestroyerDestroyBase
 )
 
 type AbilityGroup int
@@ -70,29 +71,34 @@ func getDeck() *map[string]*CardEntry {
 	deck["viper"] = viper()
 	deck["explorer"] = explorer()
 
-	deck["blobFighter"] = blobFighter()
-	deck["tradePod"] = tradePod()
-	deck["ram"] = ram()
+	/*
+		deck["blobFighter"] = blobFighter()
+		deck["tradePod"] = tradePod()
+		deck["ram"] = ram()
+		deck["battlePod"] = battlePod()
+	*/
 	deck["theHive"] = theHive()
 	deck["blobWheel"] = blobWheel()
-	deck["battlePod"] = battlePod()
 	deck["blobCarrier"] = blobCarrier()
+	deck["blobDestroyer"] = blobDestroyer()
 
-	deck["corvette"] = corvette()
-	deck["dreadnaught"] = dreadnaught()
-	deck["imperialFighter"] = imperialFighter()
-	deck["imperialFrigate"] = imperialFrigate()
-	deck["royalRedoubt"] = royalRedoubt()
-	deck["spaceStation"] = spaceStation()
-	deck["surveyShip"] = surveyShip()
-	deck["warWorld"] = warWorld()
+	/*
+		deck["corvette"] = corvette()
+		deck["dreadnaught"] = dreadnaught()
+		deck["imperialFighter"] = imperialFighter()
+		deck["imperialFrigate"] = imperialFrigate()
+		deck["royalRedoubt"] = royalRedoubt()
+		deck["spaceStation"] = spaceStation()
+		deck["surveyShip"] = surveyShip()
+		deck["warWorld"] = warWorld()
 
-	deck["battleMech"] = battleMech()
-	deck["missileBot"] = missileBot()
-	deck["supplyBot"] = supplyBot()
-	deck["missileMech"] = missileMech()
-	deck["tradeBot"] = tradeBot()
-	deck["patrolMech"] = patrolMech()
+		deck["battleMech"] = battleMech()
+		deck["missileBot"] = missileBot()
+		deck["supplyBot"] = supplyBot()
+		deck["missileMech"] = missileMech()
+		deck["tradeBot"] = tradeBot()
+		deck["patrolMech"] = patrolMech()
+	*/
 
 	return &deck
 }
@@ -347,6 +353,29 @@ func blobCarrier() *CardEntry {
 				id:         BlobCarrierAcquire,
 				player:     Current,
 				actions:    actionRequest(AcquireShipForFree),
+			},
+		},
+	}
+}
+
+func blobDestroyer() *CardEntry {
+	return &CardEntry{
+		cost:     4,
+		qty:      2,
+		faction:  Blob,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 6),
+			},
+			&Ability{
+				group:      Ally,
+				actionType: Activated,
+				id:         BlobDestroyerDestroyBase,
+				player:     Current,
+				actions:    actionRequest(DestroyBaseBlobDestroyer),
 			},
 		},
 	}
