@@ -61,7 +61,7 @@ const (
 	ActivateAbility
 	ScrapCard
 	ScrapCardTradeRow
-	DestroyBaseMissileMech
+	DestroyBaseForFree
 	AcquireShipForFree
 	DestroyBaseBlobDestroyer
 )

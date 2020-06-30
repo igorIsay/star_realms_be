@@ -71,34 +71,31 @@ func getDeck() *map[string]*CardEntry {
 	deck["viper"] = viper()
 	deck["explorer"] = explorer()
 
-	/*
-		deck["blobFighter"] = blobFighter()
-		deck["tradePod"] = tradePod()
-		deck["ram"] = ram()
-		deck["battlePod"] = battlePod()
-	*/
+	deck["blobFighter"] = blobFighter()
+	deck["tradePod"] = tradePod()
+	deck["ram"] = ram()
+	deck["battlePod"] = battlePod()
 	deck["theHive"] = theHive()
 	deck["blobWheel"] = blobWheel()
 	deck["blobCarrier"] = blobCarrier()
 	deck["blobDestroyer"] = blobDestroyer()
 
-	/*
-		deck["corvette"] = corvette()
-		deck["dreadnaught"] = dreadnaught()
-		deck["imperialFighter"] = imperialFighter()
-		deck["imperialFrigate"] = imperialFrigate()
-		deck["royalRedoubt"] = royalRedoubt()
-		deck["spaceStation"] = spaceStation()
-		deck["surveyShip"] = surveyShip()
-		deck["warWorld"] = warWorld()
+	deck["corvette"] = corvette()
+	deck["dreadnaught"] = dreadnaught()
+	deck["imperialFighter"] = imperialFighter()
+	deck["imperialFrigate"] = imperialFrigate()
+	deck["royalRedoubt"] = royalRedoubt()
+	deck["spaceStation"] = spaceStation()
+	deck["surveyShip"] = surveyShip()
+	deck["warWorld"] = warWorld()
+	deck["battlecruiser"] = battlecruiser()
 
-		deck["battleMech"] = battleMech()
-		deck["missileBot"] = missileBot()
-		deck["supplyBot"] = supplyBot()
-		deck["missileMech"] = missileMech()
-		deck["tradeBot"] = tradeBot()
-		deck["patrolMech"] = patrolMech()
-	*/
+	deck["battleMech"] = battleMech()
+	deck["missileBot"] = missileBot()
+	deck["supplyBot"] = supplyBot()
+	deck["missileMech"] = missileMech()
+	deck["tradeBot"] = tradeBot()
+	deck["patrolMech"] = patrolMech()
 
 	return &deck
 }
@@ -595,6 +592,51 @@ func warWorld() *CardEntry {
 	}
 }
 
+func battlecruiser() *CardEntry {
+	return &CardEntry{
+		cost:     6,
+		qty:      1,
+		faction:  StarEmpire,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 5),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionTopCard{
+							from: playerDeckMapper(player, Deck),
+							to:   playerDeckMapper(player, Hand),
+						},
+						&StateActionRequestUserAction{
+							player: player,
+							action: DestroyBaseForFree,
+							cardId: cardId,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:   Ally,
+				player:  Opponent,
+				actions: changeCounter(Increase, Discard, 1),
+			},
+		},
+	}
+}
+
 func battleMech() *CardEntry {
 	return &CardEntry{
 		cost:     5,
@@ -717,7 +759,7 @@ func missileMech() *CardEntry {
 			&Ability{
 				group:   BeforePlay,
 				player:  Current,
-				actions: actionRequest(DestroyBaseMissileMech),
+				actions: actionRequest(DestroyBaseForFree),
 			},
 		},
 		abilities: []*Ability{

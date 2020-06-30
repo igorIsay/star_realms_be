@@ -218,8 +218,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		userAction = ScrapCard
 	case int(ScrapCardTradeRow):
 		userAction = ScrapCardTradeRow
-	case int(DestroyBaseMissileMech):
-		userAction = DestroyBaseMissileMech
+	case int(DestroyBaseForFree):
+		userAction = DestroyBaseForFree
 	case int(AcquireShipForFree):
 		userAction = AcquireShipForFree
 	case int(DestroyBaseBlobDestroyer):
@@ -441,7 +441,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			m.topCard(TradeDeck, TradeRow, &actions)
 		}
 		m.requestUserAction(player, NoneAction, &actions)
-	case DestroyBaseMissileMech:
+	case DestroyBaseForFree:
 		if len(parsed) > 1 {
 			baseId := parsed[1]
 			card, ok := deck[strings.Split(baseId, "_")[0]]
