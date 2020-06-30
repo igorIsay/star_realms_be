@@ -34,6 +34,13 @@ const (
 	PatrolMechScrap
 	BlobCarrierAcquire
 	BlobDestroyerDestroyBase
+	CommandShipDestroyBase
+	TradingPostAuthority
+	TradingPostTrade
+	BarterWorldAuthority
+	BarterWorldTrade
+	DefenseCenterAuthority
+	DefenseCenterCombat
 )
 
 type AbilityGroup int
@@ -96,6 +103,16 @@ func getDeck() *map[string]*CardEntry {
 	deck["missileMech"] = missileMech()
 	deck["tradeBot"] = tradeBot()
 	deck["patrolMech"] = patrolMech()
+
+	deck["federationShuttle"] = federationShuttle()
+	deck["cutter"] = cutter()
+	deck["tradeEscort"] = tradeEscort()
+	deck["flagship"] = flagship()
+	deck["commandShip"] = commandShip()
+	deck["barterWorld"] = barterWorld()
+	deck["tradingPost"] = tradingPost()
+	deck["defenseCenter"] = defenseCenter()
+	deck["portOfCall"] = portOfCall()
 
 	return &deck
 }
@@ -847,3 +864,369 @@ func patrolMech() *CardEntry {
 		},
 	}
 }
+
+func federationShuttle() *CardEntry {
+	return &CardEntry{
+		cost:     1,
+		qty:      3,
+		faction:  TradeFederation,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 2),
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Authority, 4),
+			},
+		},
+	}
+}
+
+func cutter() *CardEntry {
+	return &CardEntry{
+		cost:     2,
+		qty:      3,
+		faction:  TradeFederation,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 2),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Authority, 4),
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 4),
+			},
+		},
+	}
+}
+
+func tradeEscort() *CardEntry {
+	return &CardEntry{
+		cost:     5,
+		qty:      1,
+		faction:  TradeFederation,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 4),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Authority, 4),
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
+			},
+		},
+	}
+}
+
+func flagship() *CardEntry {
+	return &CardEntry{
+		cost:     6,
+		qty:      1,
+		faction:  TradeFederation,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 5),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Authority, 5),
+			},
+		},
+	}
+}
+
+func commandShip() *CardEntry {
+	return &CardEntry{
+		cost:     8,
+		qty:      1,
+		faction:  TradeFederation,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 5),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Authority, 4),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
+			},
+			&Ability{
+				group:      Ally,
+				actionType: Activated,
+				id:         CommandShipDestroyBase,
+				player:     Current,
+				actions:    actionRequest(DestroyBaseForFree),
+			},
+		},
+	}
+}
+
+func tradingPost() *CardEntry {
+	return &CardEntry{
+		cost:     3,
+		qty:      2,
+		faction:  TradeFederation,
+		cardType: Base,
+		defense:  4,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         TradingPostAuthority,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Authority,
+							operation: Increase,
+							value:     1,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: TradingPostTrade,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         TradingPostTrade,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Trade,
+							operation: Increase,
+							value:     1,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: TradingPostAuthority,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Combat, 3),
+			},
+		},
+	}
+}
+
+func barterWorld() *CardEntry {
+	return &CardEntry{
+		cost:     4,
+		qty:      2,
+		faction:  TradeFederation,
+		cardType: Base,
+		defense:  4,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         BarterWorldAuthority,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Authority,
+							operation: Increase,
+							value:     2,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: BarterWorldTrade,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         BarterWorldTrade,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Trade,
+							operation: Increase,
+							value:     2,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: BarterWorldAuthority,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Combat, 5),
+			},
+		},
+	}
+}
+
+func defenseCenter() *CardEntry {
+	return &CardEntry{
+		cost:     5,
+		qty:      1,
+		faction:  TradeFederation,
+		cardType: Base,
+		defense:  5,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         DefenseCenterAuthority,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Authority,
+							operation: Increase,
+							value:     3,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: DefenseCenterCombat,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         DefenseCenterCombat,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Combat,
+							operation: Increase,
+							value:     2,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: DefenseCenterAuthority,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 2),
+			},
+		},
+	}
+}
+
+func portOfCall() *CardEntry {
+	return &CardEntry{
+		cost:     6,
+		qty:      1,
+		faction:  TradeFederation,
+		cardType: Base,
+		defense:  6,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 3),
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions: func(player PlayerId, cardId string) []StateAction {
+					return []StateAction{
+						&StateActionTopCard{
+							from: playerDeckMapper(player, Deck),
+							to:   playerDeckMapper(player, Hand),
+						},
+						&StateActionRequestUserAction{
+							player: player,
+							action: DestroyBaseForFree,
+							cardId: cardId,
+						},
+					}
+				},
+			},
+		},
+	}
+}
+
+/*
+func freighter() *CardEntry {
+	return &CardEntry{
+		cost:     4,
+		qty:      2,
+		faction:  TradeFederation,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 4),
+			},
+		},
+	}
+}
+*/

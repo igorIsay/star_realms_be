@@ -290,6 +290,20 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				abilityId = BlobCarrierAcquire
 			case int(BlobDestroyerDestroyBase):
 				abilityId = BlobDestroyerDestroyBase
+			case int(CommandShipDestroyBase):
+				abilityId = CommandShipDestroyBase
+			case int(TradingPostAuthority):
+				abilityId = TradingPostAuthority
+			case int(TradingPostTrade):
+				abilityId = TradingPostTrade
+			case int(BarterWorldAuthority):
+				abilityId = BarterWorldAuthority
+			case int(BarterWorldTrade):
+				abilityId = BarterWorldTrade
+			case int(DefenseCenterAuthority):
+				abilityId = DefenseCenterAuthority
+			case int(DefenseCenterCombat):
+				abilityId = DefenseCenterCombat
 			default:
 				return actions
 			}
