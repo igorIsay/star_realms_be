@@ -44,7 +44,7 @@ type Counters struct {
 	Combat     int `json:"combat"`
 	Authority  int `json:"authority"`
 	Discard    int `json:"discard"`
-	ShipsOnTop int `json:"cardsOnTop"`
+	ShipsOnTop int `json:"shipsOnTop"`
 }
 
 type UserAction int

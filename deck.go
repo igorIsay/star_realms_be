@@ -113,6 +113,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["defenseCenter"] = defenseCenter()
 	deck["portOfCall"] = portOfCall()
 	deck["freighter"] = freighter()
+	deck["centralOffice"] = centralOffice()
 
 	return &deck
 }
@@ -1229,6 +1230,33 @@ func freighter() *CardEntry {
 				group:   Ally,
 				player:  Current,
 				actions: changeCounter(Increase, ShipsOnTop, 1),
+			},
+		},
+	}
+}
+
+func centralOffice() *CardEntry {
+	return &CardEntry{
+		cost:     7,
+		qty:      1,
+		faction:  TradeFederation,
+		cardType: Base,
+		defense:  6,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 2),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, ShipsOnTop, 1),
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
 			},
 		},
 	}
