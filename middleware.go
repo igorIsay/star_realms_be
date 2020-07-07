@@ -305,6 +305,8 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				abilityId = DefenseCenterAuthority
 			case int(DefenseCenterCombat):
 				abilityId = DefenseCenterCombat
+			case int(Junkyard):
+				abilityId = Junkyard
 			default:
 				return actions
 			}

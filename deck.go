@@ -43,6 +43,7 @@ const (
 	BarterWorldTrade
 	DefenseCenterAuthority
 	DefenseCenterCombat
+	Junkyard
 )
 
 type AbilityGroup int
@@ -80,32 +81,31 @@ func getDeck() *map[string]*CardEntry {
 	deck["viper"] = viper()
 	deck["explorer"] = explorer()
 
-	/*
-		deck["tradePod"] = tradePod()
-		deck["ram"] = ram()
-		deck["battlePod"] = battlePod()
-		deck["theHive"] = theHive()
-		deck["blobWheel"] = blobWheel()
-		deck["blobCarrier"] = blobCarrier()
-		deck["blobDestroyer"] = blobDestroyer()
+	deck["tradePod"] = tradePod()
+	deck["ram"] = ram()
+	deck["battlePod"] = battlePod()
+	deck["theHive"] = theHive()
+	deck["blobWheel"] = blobWheel()
+	deck["blobCarrier"] = blobCarrier()
+	deck["blobDestroyer"] = blobDestroyer()
 
-		deck["corvette"] = corvette()
-		deck["dreadnaught"] = dreadnaught()
-		deck["imperialFighter"] = imperialFighter()
-		deck["imperialFrigate"] = imperialFrigate()
-		deck["royalRedoubt"] = royalRedoubt()
-		deck["spaceStation"] = spaceStation()
-		deck["surveyShip"] = surveyShip()
-		deck["warWorld"] = warWorld()
-		deck["battlecruiser"] = battlecruiser()
+	deck["corvette"] = corvette()
+	deck["dreadnaught"] = dreadnaught()
+	deck["imperialFighter"] = imperialFighter()
+	deck["imperialFrigate"] = imperialFrigate()
+	deck["royalRedoubt"] = royalRedoubt()
+	deck["spaceStation"] = spaceStation()
+	deck["surveyShip"] = surveyShip()
+	deck["warWorld"] = warWorld()
+	deck["battlecruiser"] = battlecruiser()
 
-		deck["battleMech"] = battleMech()
-		deck["missileBot"] = missileBot()
-		deck["supplyBot"] = supplyBot()
-		deck["missileMech"] = missileMech()
-		deck["tradeBot"] = tradeBot()
-		deck["patrolMech"] = patrolMech()
-	*/
+	deck["battleMech"] = battleMech()
+	deck["missileBot"] = missileBot()
+	deck["supplyBot"] = supplyBot()
+	deck["missileMech"] = missileMech()
+	deck["tradeBot"] = tradeBot()
+	deck["patrolMech"] = patrolMech()
+	deck["junkyard"] = junkyard()
 
 	deck["federationShuttle"] = federationShuttle()
 	deck["cutter"] = cutter()
@@ -1298,6 +1298,25 @@ func centralOffice() *CardEntry {
 				group:   Ally,
 				player:  Current,
 				actions: drawCard,
+			},
+		},
+	}
+}
+
+func junkyard() *CardEntry {
+	return &CardEntry{
+		cost:     6,
+		qty:      1,
+		faction:  MachineCult,
+		cardType: Base,
+		defense:  5,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         Junkyard,
+				player:     Current,
+				actions:    actionRequest(ScrapCard),
 			},
 		},
 	}
