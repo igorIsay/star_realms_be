@@ -195,40 +195,9 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		log.Println(err)
 		return actions
 	}
-	var userAction UserAction
-	switch parsedAction {
-	case int(Play):
-		userAction = Play
-	case int(End):
-		userAction = End
-	case int(Damage):
-		userAction = Damage
-	case int(Buy):
-		userAction = Buy
-	case int(Utilize):
-		userAction = Utilize
-	case int(Start):
-		userAction = Start
-	case int(DestroyBase):
-		userAction = DestroyBase
-	case int(DiscardCard):
-		userAction = DiscardCard
-	case int(ActivateAbility):
-		userAction = ActivateAbility
-	case int(ScrapCard):
-		userAction = ScrapCard
-	case int(ScrapCardTradeRow):
-		userAction = ScrapCardTradeRow
-	case int(DestroyBaseForFree):
-		userAction = DestroyBaseForFree
-	case int(AcquireShipForFree):
-		userAction = AcquireShipForFree
-	case int(DestroyBaseBlobDestroyer):
-		userAction = DestroyBaseBlobDestroyer
-	default:
-		//TODO: handle exception
-		return actions
-	}
+
+	userAction := UserAction(parsedAction)
+
 	if m.deferredCall != nil {
 		deferredActions = m.deferredCall()
 		m.deferredCall = nil
@@ -277,40 +246,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				return actions
 			}
 
-			var abilityId AbilityId
-			switch parsedAbilityId {
-			case int(Utilization):
-				abilityId = Utilization
-			case int(PatrolMechTrade):
-				abilityId = PatrolMechTrade
-			case int(PatrolMechCombat):
-				abilityId = PatrolMechCombat
-			case int(PatrolMechScrap):
-				abilityId = PatrolMechScrap
-			case int(BlobCarrierAcquire):
-				abilityId = BlobCarrierAcquire
-			case int(BlobDestroyerDestroyBase):
-				abilityId = BlobDestroyerDestroyBase
-			case int(CommandShipDestroyBase):
-				abilityId = CommandShipDestroyBase
-			case int(TradingPostAuthority):
-				abilityId = TradingPostAuthority
-			case int(TradingPostTrade):
-				abilityId = TradingPostTrade
-			case int(BarterWorldAuthority):
-				abilityId = BarterWorldAuthority
-			case int(BarterWorldTrade):
-				abilityId = BarterWorldTrade
-			case int(DefenseCenterAuthority):
-				abilityId = DefenseCenterAuthority
-			case int(DefenseCenterCombat):
-				abilityId = DefenseCenterCombat
-			case int(Junkyard):
-				abilityId = Junkyard
-			default:
-				return actions
-			}
-
+			abilityId := AbilityId(parsedAbilityId)
 			for _, ability := range card.abilities {
 				if ability.id == abilityId {
 					m.activateAbility(ability, id, player, state, &actions)
