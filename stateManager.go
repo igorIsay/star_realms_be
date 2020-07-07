@@ -42,6 +42,7 @@ const (
 	Combat
 	Authority
 	Discard
+	ShipsOnTop
 )
 
 type Operation int
@@ -249,6 +250,7 @@ func (s *StateManager) run() {
 			counters[Authority] = &c.Authority
 			counters[Combat] = &c.Combat
 			counters[Discard] = &c.Discard
+			counters[ShipsOnTop] = &c.ShipsOnTop
 			calc(counters[counter], value, operation)
 		case TopCard:
 			data := action.Data()

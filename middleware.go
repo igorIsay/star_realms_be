@@ -133,6 +133,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 	var deferredActions []StateAction
 
 	currentPlayer, err := m.relativePlayer(player, Current)
+	currentPlayerCounters, err := m.relativeCounters(player, CurrentPlayerCounters, state)
 	if err != nil {
 		// TODO handle error
 		log.Println(err)
@@ -345,6 +346,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		m.moveAll(currentTable, currentDiscard, &actions)
 		m.changeCounterValue(currentPlayer, Set, Trade, 0, &actions)
 		m.changeCounterValue(currentPlayer, Set, Combat, 0, &actions)
+		m.changeCounterValue(currentPlayer, Set, ShipsOnTop, 0, &actions)
 		for i := 1; i <= HandCardsQty; i++ {
 			m.topCard(currentDeck, currentHand, &actions)
 		}
@@ -384,7 +386,13 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		m.moveCard(id, currentDiscard, &actions)
+
+		if card.cardType == Ship && currentPlayerCounters.ShipsOnTop > 0 {
+			m.moveCard(id, currentDeck, &actions)
+			m.changeCounterValue(currentPlayer, Decrease, ShipsOnTop, 1, &actions)
+		} else {
+			m.moveCard(id, currentDiscard, &actions)
+		}
 		m.changeCounterValue(currentPlayer, Decrease, Trade, card.cost, &actions)
 		if cardEntryId != "explorer" {
 			m.topCard(TradeDeck, TradeRow, &actions)
@@ -428,7 +436,6 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		m.moveCard(id, currentDiscard, &actions)
 		m.changeCounterValue(currentPlayer, Decrease, Discard, 1, &actions)
 
-		currentPlayerCounters, err := m.relativeCounters(player, CurrentPlayerCounters, state)
 		if err != nil {
 			// TODO handle exception
 			return actions

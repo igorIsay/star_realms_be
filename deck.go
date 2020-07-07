@@ -78,7 +78,6 @@ func getDeck() *map[string]*CardEntry {
 	deck["viper"] = viper()
 	deck["explorer"] = explorer()
 
-	deck["blobFighter"] = blobFighter()
 	deck["tradePod"] = tradePod()
 	deck["ram"] = ram()
 	deck["battlePod"] = battlePod()
@@ -113,6 +112,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["tradingPost"] = tradingPost()
 	deck["defenseCenter"] = defenseCenter()
 	deck["portOfCall"] = portOfCall()
+	deck["freighter"] = freighter()
 
 	return &deck
 }
@@ -1213,7 +1213,6 @@ func portOfCall() *CardEntry {
 	}
 }
 
-/*
 func freighter() *CardEntry {
 	return &CardEntry{
 		cost:     4,
@@ -1226,7 +1225,11 @@ func freighter() *CardEntry {
 				player:  Current,
 				actions: changeCounter(Increase, Trade, 4),
 			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: changeCounter(Increase, ShipsOnTop, 1),
+			},
 		},
 	}
 }
-*/

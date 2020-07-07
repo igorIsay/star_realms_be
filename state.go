@@ -40,10 +40,11 @@ const (
 )
 
 type Counters struct {
-	Trade     int `json:"trade"`
-	Combat    int `json:"combat"`
-	Authority int `json:"authority"`
-	Discard   int `json:"discard"`
+	Trade      int `json:"trade"`
+	Combat     int `json:"combat"`
+	Authority  int `json:"authority"`
+	Discard    int `json:"discard"`
+	ShipsOnTop int `json:"cardsOnTop"`
 }
 
 type UserAction int
