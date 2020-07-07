@@ -1,5 +1,7 @@
 package main
 
+import "log"
+
 type Faction int
 
 const (
@@ -58,7 +60,7 @@ type Ability struct {
 	actionType AbilityActionType
 	id         AbilityId
 	player     PlayerPointer
-	actions    func(PlayerId, string) []StateAction
+	actions    func(PlayerId, string, *State) []StateAction
 }
 
 type CardEntry struct {
@@ -78,30 +80,32 @@ func getDeck() *map[string]*CardEntry {
 	deck["viper"] = viper()
 	deck["explorer"] = explorer()
 
-	deck["tradePod"] = tradePod()
-	deck["ram"] = ram()
-	deck["battlePod"] = battlePod()
-	deck["theHive"] = theHive()
-	deck["blobWheel"] = blobWheel()
-	deck["blobCarrier"] = blobCarrier()
-	deck["blobDestroyer"] = blobDestroyer()
+	/*
+		deck["tradePod"] = tradePod()
+		deck["ram"] = ram()
+		deck["battlePod"] = battlePod()
+		deck["theHive"] = theHive()
+		deck["blobWheel"] = blobWheel()
+		deck["blobCarrier"] = blobCarrier()
+		deck["blobDestroyer"] = blobDestroyer()
 
-	deck["corvette"] = corvette()
-	deck["dreadnaught"] = dreadnaught()
-	deck["imperialFighter"] = imperialFighter()
-	deck["imperialFrigate"] = imperialFrigate()
-	deck["royalRedoubt"] = royalRedoubt()
-	deck["spaceStation"] = spaceStation()
-	deck["surveyShip"] = surveyShip()
-	deck["warWorld"] = warWorld()
-	deck["battlecruiser"] = battlecruiser()
+		deck["corvette"] = corvette()
+		deck["dreadnaught"] = dreadnaught()
+		deck["imperialFighter"] = imperialFighter()
+		deck["imperialFrigate"] = imperialFrigate()
+		deck["royalRedoubt"] = royalRedoubt()
+		deck["spaceStation"] = spaceStation()
+		deck["surveyShip"] = surveyShip()
+		deck["warWorld"] = warWorld()
+		deck["battlecruiser"] = battlecruiser()
 
-	deck["battleMech"] = battleMech()
-	deck["missileBot"] = missileBot()
-	deck["supplyBot"] = supplyBot()
-	deck["missileMech"] = missileMech()
-	deck["tradeBot"] = tradeBot()
-	deck["patrolMech"] = patrolMech()
+		deck["battleMech"] = battleMech()
+		deck["missileBot"] = missileBot()
+		deck["supplyBot"] = supplyBot()
+		deck["missileMech"] = missileMech()
+		deck["tradeBot"] = tradeBot()
+		deck["patrolMech"] = patrolMech()
+	*/
 
 	deck["federationShuttle"] = federationShuttle()
 	deck["cutter"] = cutter()
@@ -114,12 +118,13 @@ func getDeck() *map[string]*CardEntry {
 	deck["portOfCall"] = portOfCall()
 	deck["freighter"] = freighter()
 	deck["centralOffice"] = centralOffice()
+	deck["embassyYacht"] = embassyYacht()
 
 	return &deck
 }
 
-func changeCounter(operation Operation, counter Counter, value int) func(PlayerId, string) []StateAction {
-	return func(player PlayerId, cardId string) []StateAction {
+func changeCounter(operation Operation, counter Counter, value int) func(PlayerId, string, *State) []StateAction {
+	return func(player PlayerId, cardId string, state *State) []StateAction {
 		return []StateAction{
 			&StateActionChangeCounterValue{
 				player:    player,
@@ -131,8 +136,8 @@ func changeCounter(operation Operation, counter Counter, value int) func(PlayerI
 	}
 }
 
-func actionRequest(action UserAction) func(PlayerId, string) []StateAction {
-	return func(player PlayerId, cardId string) []StateAction {
+func actionRequest(action UserAction) func(PlayerId, string, *State) []StateAction {
+	return func(player PlayerId, cardId string, state *State) []StateAction {
 		return []StateAction{
 			&StateActionRequestUserAction{
 				player: player,
@@ -143,11 +148,23 @@ func actionRequest(action UserAction) func(PlayerId, string) []StateAction {
 	}
 }
 
-func drawCard(player PlayerId, cardId string) []StateAction {
+func drawCard(player PlayerId, cardId string, state *State) []StateAction {
+	currentDeck, err := locationByPointer(CurrentDeck, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return []StateAction{}
+	}
+	currentHand, err := locationByPointer(CurrentHand, player)
+	if err != nil {
+		// TODO: handle exception
+		log.Println(err)
+		return []StateAction{}
+	}
 	return []StateAction{
 		&StateActionTopCard{
-			from: playerDeckMapper(player, Deck),
-			to:   playerDeckMapper(player, Hand),
+			from: currentDeck,
+			to:   currentHand,
 		},
 	}
 }
@@ -632,11 +649,23 @@ func battlecruiser() *CardEntry {
 				actionType: Activated,
 				id:         Utilization,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
+					currentDeck, err := locationByPointer(CurrentDeck, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					currentHand, err := locationByPointer(CurrentHand, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
 					return []StateAction{
 						&StateActionTopCard{
-							from: playerDeckMapper(player, Deck),
-							to:   playerDeckMapper(player, Hand),
+							from: currentDeck,
+							to:   currentHand,
 						},
 						&StateActionRequestUserAction{
 							player: player,
@@ -812,7 +841,7 @@ func patrolMech() *CardEntry {
 				actionType: Activated,
 				id:         PatrolMechTrade,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -836,7 +865,7 @@ func patrolMech() *CardEntry {
 				actionType: Activated,
 				id:         PatrolMechCombat,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -1016,7 +1045,7 @@ func tradingPost() *CardEntry {
 				actionType: Activated,
 				id:         TradingPostAuthority,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -1036,7 +1065,7 @@ func tradingPost() *CardEntry {
 				actionType: Activated,
 				id:         TradingPostTrade,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -1075,7 +1104,7 @@ func barterWorld() *CardEntry {
 				actionType: Activated,
 				id:         BarterWorldAuthority,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -1095,7 +1124,7 @@ func barterWorld() *CardEntry {
 				actionType: Activated,
 				id:         BarterWorldTrade,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -1134,7 +1163,7 @@ func defenseCenter() *CardEntry {
 				actionType: Activated,
 				id:         DefenseCenterAuthority,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -1154,7 +1183,7 @@ func defenseCenter() *CardEntry {
 				actionType: Activated,
 				id:         DefenseCenterCombat,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
 					return []StateAction{
 						&StateActionChangeCounterValue{
 							player:    player,
@@ -1196,11 +1225,23 @@ func portOfCall() *CardEntry {
 				actionType: Activated,
 				id:         Utilization,
 				player:     Current,
-				actions: func(player PlayerId, cardId string) []StateAction {
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
+					currentDeck, err := locationByPointer(CurrentDeck, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					currentHand, err := locationByPointer(CurrentHand, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
 					return []StateAction{
 						&StateActionTopCard{
-							from: playerDeckMapper(player, Deck),
-							to:   playerDeckMapper(player, Hand),
+							from: currentDeck,
+							to:   currentHand,
 						},
 						&StateActionRequestUserAction{
 							player: player,
@@ -1257,6 +1298,70 @@ func centralOffice() *CardEntry {
 				group:   Ally,
 				player:  Current,
 				actions: drawCard,
+			},
+		},
+	}
+}
+
+func embassyYacht() *CardEntry {
+	return &CardEntry{
+		cost:     3,
+		qty:      2,
+		faction:  TradeFederation,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Trade, 2),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Authority, 3),
+			},
+			&Ability{
+				group:  Primary,
+				player: Current,
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
+					currentBases, err := locationByPointer(CurrentBases, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					basesCount := 0
+					for _, card := range state.Cards {
+						if card.Location == currentBases {
+							basesCount += 1
+						}
+					}
+					if basesCount < 2 {
+						return []StateAction{}
+					}
+					currentDeck, err := locationByPointer(CurrentDeck, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					currentHand, err := locationByPointer(CurrentHand, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					return []StateAction{
+						&StateActionTopCard{
+							from: currentDeck,
+							to:   currentHand,
+						},
+						&StateActionTopCard{
+							from: currentDeck,
+							to:   currentHand,
+						},
+					}
+				},
 			},
 		},
 	}

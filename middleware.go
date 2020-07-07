@@ -88,7 +88,7 @@ func (m *Middleware) resetAllyState() {
 	m.allyState = emptyAllyState()
 }
 
-func (m *Middleware) activateAbility(ability *Ability, cardId string, player PlayerId, actions *[]StateAction) {
+func (m *Middleware) activateAbility(ability *Ability, cardId string, player PlayerId, state *State, actions *[]StateAction) {
 	currentPlayer, err := m.relativePlayer(player, Current)
 	if err != nil {
 		// TODO handle error
@@ -104,19 +104,19 @@ func (m *Middleware) activateAbility(ability *Ability, cardId string, player Pla
 
 	var abilityActions []StateAction
 	if ability.player == Current {
-		abilityActions = ability.actions(currentPlayer, cardId)
+		abilityActions = ability.actions(currentPlayer, cardId, state)
 	} else {
-		abilityActions = ability.actions(opponent, cardId)
+		abilityActions = ability.actions(opponent, cardId, state)
 	}
 	for _, action := range abilityActions {
 		*actions = append(*actions, action)
 	}
 }
 
-func (m *Middleware) processAbility(ability *Ability, cardId string, player PlayerId, actions *[]StateAction) {
+func (m *Middleware) processAbility(ability *Ability, cardId string, player PlayerId, state *State, actions *[]StateAction) {
 	switch ability.actionType {
 	case Instant:
-		m.activateAbility(ability, cardId, player, actions)
+		m.activateAbility(ability, cardId, player, state, actions)
 	case Activated:
 		*actions = append(
 			*actions,
@@ -146,37 +146,37 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		return actions
 	}
 
-	currentDeck, err := m.locationByPointer(CurrentDeck, player)
+	currentDeck, err := locationByPointer(CurrentDeck, player)
 	if err != nil {
 		// TODO: handle exception
 		log.Println(err)
 		return actions
 	}
-	currentHand, err := m.locationByPointer(CurrentHand, player)
+	currentHand, err := locationByPointer(CurrentHand, player)
 	if err != nil {
 		// TODO: handle exception
 		log.Println(err)
 		return actions
 	}
-	currentTable, err := m.locationByPointer(CurrentTable, player)
+	currentTable, err := locationByPointer(CurrentTable, player)
 	if err != nil {
 		// TODO: handle exception
 		log.Println(err)
 		return actions
 	}
-	currentBases, err := m.locationByPointer(CurrentBases, player)
+	currentBases, err := locationByPointer(CurrentBases, player)
 	if err != nil {
 		// TODO: handle exception
 		log.Println(err)
 		return actions
 	}
-	currentDiscard, err := m.locationByPointer(CurrentDiscard, player)
+	currentDiscard, err := locationByPointer(CurrentDiscard, player)
 	if err != nil {
 		// TODO: handle exception
 		log.Println(err)
 		return actions
 	}
-	opponentDiscard, err := m.locationByPointer(OpponentDiscard, player)
+	opponentDiscard, err := locationByPointer(OpponentDiscard, player)
 	if err != nil {
 		// TODO: handle exception
 		log.Println(err)
@@ -250,16 +250,16 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 
 			if len(card.beforePlay) > 0 {
 				for _, ability := range card.beforePlay {
-					m.processAbility(ability, id, player, &actions)
+					m.processAbility(ability, id, player, state, &actions)
 				}
 
 				m.deferredCall = func() []StateAction {
 					var actions []StateAction
-					m.playAbilities(player, id, &actions)
+					m.playAbilities(player, id, state, &actions)
 					return actions
 				}
 			} else {
-				m.playAbilities(player, id, &actions)
+				m.playAbilities(player, id, state, &actions)
 			}
 		}
 
@@ -311,7 +311,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 
 			for _, ability := range card.abilities {
 				if ability.id == abilityId {
-					m.activateAbility(ability, id, player, &actions)
+					m.activateAbility(ability, id, player, state, &actions)
 
 					if ability.id == Utilization {
 						m.moveCard(id, ScrapHeap, &actions)
@@ -400,7 +400,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 	case Start:
 		for cardId, card := range state.Cards {
 			if card.Location == currentBases {
-				m.playAbilities(player, cardId, &actions)
+				m.playAbilities(player, cardId, state, &actions)
 			}
 		}
 		m.requestUserAction(currentPlayer, NoneAction, &actions)
@@ -539,34 +539,6 @@ func (m *Middleware) prepareState() []StateAction {
 	return actions
 }
 
-type DeckType int
-
-const (
-	Deck DeckType = iota
-	Hand
-	Table
-	DiscardPile
-)
-
-func playerDeckMapper(player PlayerId, deck DeckType) CardLocation {
-	type DeckLocation map[DeckType]CardLocation
-	type PlayerDeckMapper map[PlayerId]DeckLocation
-	firstPlayerDecks := make(map[DeckType]CardLocation)
-	firstPlayerDecks[Deck] = FirstPlayerDeck
-	firstPlayerDecks[Hand] = FirstPlayerHand
-	firstPlayerDecks[Table] = FirstPlayerTable
-	firstPlayerDecks[DiscardPile] = FirstPlayerDiscard
-	secondPlayerDecks := make(map[DeckType]CardLocation)
-	secondPlayerDecks[Deck] = SecondPlayerDeck
-	secondPlayerDecks[Hand] = SecondPlayerHand
-	secondPlayerDecks[Table] = SecondPlayerTable
-	secondPlayerDecks[DiscardPile] = SecondPlayerDiscard
-	mapper := make(map[PlayerId]DeckLocation)
-	mapper[FirstPlayer] = firstPlayerDecks
-	mapper[SecondPlayer] = secondPlayerDecks
-	return mapper[player][deck]
-}
-
 type WrongPlayerIdError struct {
 	id PlayerId
 }
@@ -649,7 +621,7 @@ func (m *Middleware) relativeCounters(player PlayerId, countersPointer CountersP
 	}
 }
 
-func (m *Middleware) playAbilities(player PlayerId, cardId string, actions *[]StateAction) {
+func (m *Middleware) playAbilities(player PlayerId, cardId string, state *State, actions *[]StateAction) {
 	deck := *m.deck
 	card, ok := deck[strings.Split(cardId, "_")[0]]
 	if ok {
@@ -657,7 +629,7 @@ func (m *Middleware) playAbilities(player PlayerId, cardId string, actions *[]St
 		for _, ability := range card.abilities {
 			switch ability.group {
 			case Primary:
-				m.processAbility(ability, cardId, player, actions)
+				m.processAbility(ability, cardId, player, state, actions)
 			case Ally:
 				allyAbilities = append(allyAbilities, &CardAbility{ability: ability, cardId: cardId})
 			}
@@ -666,10 +638,10 @@ func (m *Middleware) playAbilities(player PlayerId, cardId string, actions *[]St
 		if ok {
 			if allyActivated {
 				for _, cardAbility := range allyAbilities {
-					m.processAbility(cardAbility.ability, cardAbility.cardId, player, actions)
+					m.processAbility(cardAbility.ability, cardAbility.cardId, player, state, actions)
 				}
 				for _, cardAbility := range m.allyState.abilities[card.faction] {
-					m.processAbility(cardAbility.ability, cardAbility.cardId, player, actions)
+					m.processAbility(cardAbility.ability, cardAbility.cardId, player, state, actions)
 				}
 				m.allyState.abilities[card.faction] = []*CardAbility{}
 			} else {
@@ -725,7 +697,7 @@ func (m *Middleware) moveAll(from CardLocation, to CardLocation, actions *[]Stat
 	})
 }
 
-func (m *Middleware) locationByPointer(pointer LocationPointer, player PlayerId) (CardLocation, error) {
+func locationByPointer(pointer LocationPointer, player PlayerId) (CardLocation, error) {
 	switch player {
 	case FirstPlayer:
 		switch pointer {
