@@ -463,6 +463,20 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			m.topCard(TradeDeck, TradeRow, &actions)
 		}
 		m.requestUserAction(player, NoneAction, &actions)
+	case ActivateBrainWorld:
+		if len(parsed) > 1 && len(parsed) <= 3 {
+			for _, id := range parsed[1:] {
+				_, ok := deck[strings.Split(id, "_")[0]]
+				if ok {
+					card, ok := state.Cards[id]
+					if ok && (card.Location == currentHand || card.Location == currentDiscard) {
+						m.moveCard(id, ScrapHeap, &actions)
+						m.topCard(currentDeck, currentHand, &actions)
+					}
+				}
+			}
+		}
+		m.requestUserAction(player, NoneAction, &actions)
 	}
 	for _, action := range deferredActions {
 		actions = append(actions, action)

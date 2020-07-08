@@ -45,6 +45,7 @@ const (
 	DefenseCenterCombat
 	Junkyard
 	MachineBase
+	BrainWorld
 )
 
 type AbilityGroup int
@@ -108,6 +109,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["patrolMech"] = patrolMech()
 	deck["junkyard"] = junkyard()
 	deck["machineBase"] = machineBase()
+	deck["brainWorld"] = brainWorld()
 
 	deck["federationShuttle"] = federationShuttle()
 	deck["cutter"] = cutter()
@@ -1426,6 +1428,25 @@ func machineBase() *CardEntry {
 						},
 					}
 				},
+			},
+		},
+	}
+}
+
+func brainWorld() *CardEntry {
+	return &CardEntry{
+		cost:     8,
+		qty:      1,
+		faction:  MachineCult,
+		cardType: Base,
+		defense:  6,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         BrainWorld,
+				player:     Current,
+				actions:    actionRequest(ActivateBrainWorld),
 			},
 		},
 	}

@@ -66,6 +66,7 @@ const (
 	DestroyBaseForFree
 	AcquireShipForFree
 	DestroyBaseBlobDestroyer
+	ActivateBrainWorld
 )
 
 type ActionRequest struct {
