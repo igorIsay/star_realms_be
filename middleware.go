@@ -400,6 +400,18 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			m.topCard(TradeDeck, TradeRow, &actions)
 		}
 		m.requestUserAction(player, NoneAction, &actions)
+	case ScrapCardInHand:
+		if len(parsed) > 1 {
+			id := parsed[1]
+			_, ok := deck[strings.Split(id, "_")[0]]
+			if ok {
+				card, ok := state.Cards[id]
+				if ok && card.Location == currentHand {
+					m.moveCard(id, ScrapHeap, &actions)
+					m.requestUserAction(player, NoneAction, &actions)
+				}
+			}
+		}
 	case DestroyBaseForFree:
 		if len(parsed) > 1 {
 			baseId := parsed[1]

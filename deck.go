@@ -44,6 +44,7 @@ const (
 	DefenseCenterAuthority
 	DefenseCenterCombat
 	Junkyard
+	MachineBase
 )
 
 type AbilityGroup int
@@ -106,6 +107,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["tradeBot"] = tradeBot()
 	deck["patrolMech"] = patrolMech()
 	deck["junkyard"] = junkyard()
+	deck["machineBase"] = machineBase()
 
 	deck["federationShuttle"] = federationShuttle()
 	deck["cutter"] = cutter()
@@ -1378,6 +1380,49 @@ func embassyYacht() *CardEntry {
 						&StateActionTopCard{
 							from: currentDeck,
 							to:   currentHand,
+						},
+					}
+				},
+			},
+		},
+	}
+}
+
+func machineBase() *CardEntry {
+	return &CardEntry{
+		cost:     7,
+		qty:      1,
+		faction:  MachineCult,
+		cardType: Base,
+		defense:  6,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         MachineBase,
+				player:     Current,
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
+					currentDeck, err := locationByPointer(CurrentDeck, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					currentHand, err := locationByPointer(CurrentHand, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					return []StateAction{
+						&StateActionTopCard{
+							from: currentDeck,
+							to:   currentHand,
+						},
+						&StateActionRequestUserAction{
+							player: player,
+							action: ScrapCardInHand,
+							cardId: cardId,
 						},
 					}
 				},

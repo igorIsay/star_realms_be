@@ -62,6 +62,7 @@ const (
 	ActivateAbility
 	ScrapCard
 	ScrapCardTradeRow
+	ScrapCardInHand
 	DestroyBaseForFree
 	AcquireShipForFree
 	DestroyBaseBlobDestroyer
