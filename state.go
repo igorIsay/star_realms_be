@@ -45,6 +45,7 @@ type Counters struct {
 	Authority  int `json:"authority"`
 	Discard    int `json:"discard"`
 	ShipsOnTop int `json:"shipsOnTop"`
+	fleetFlag  int
 }
 
 type UserAction int

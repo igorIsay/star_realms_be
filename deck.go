@@ -102,6 +102,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["warWorld"] = warWorld()
 	deck["battlecruiser"] = battlecruiser()
 	deck["recyclingStation"] = recyclingStation()
+	deck["fleetHQ"] = fleetHQ()
 
 	deck["battleMech"] = battleMech()
 	deck["missileBot"] = missileBot()
@@ -126,7 +127,6 @@ func getDeck() *map[string]*CardEntry {
 	deck["freighter"] = freighter()
 	deck["centralOffice"] = centralOffice()
 	deck["embassyYacht"] = embassyYacht()
-
 	return &deck
 }
 
@@ -1486,6 +1486,23 @@ func recyclingStation() *CardEntry {
 				id:         RecyclingStation,
 				player:     Current,
 				actions:    actionRequest(ActivateRecyclingStation),
+			},
+		},
+	}
+}
+
+func fleetHQ() *CardEntry {
+	return &CardEntry{
+		cost:     8,
+		qty:      1,
+		faction:  StarEmpire,
+		cardType: Base,
+		defense:  8,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Set, fleetFlag, 1),
 			},
 		},
 	}

@@ -231,6 +231,9 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		if ok {
 			if card.cardType == Ship {
 				m.moveCard(id, currentTable, &actions)
+				if currentPlayerCounters.fleetFlag == 1 {
+					m.changeCounterValue(currentPlayer, Increase, Combat, 1, &actions)
+				}
 			} else {
 				m.moveCard(id, currentBases, &actions)
 			}
@@ -304,6 +307,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		m.changeCounterValue(currentPlayer, Set, Trade, 0, &actions)
 		m.changeCounterValue(currentPlayer, Set, Combat, 0, &actions)
 		m.changeCounterValue(currentPlayer, Set, ShipsOnTop, 0, &actions)
+		m.changeCounterValue(currentPlayer, Set, fleetFlag, 0, &actions)
 		for i := 1; i <= HandCardsQty; i++ {
 			m.topCard(currentDeck, currentHand, &actions)
 		}
