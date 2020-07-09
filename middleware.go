@@ -60,6 +60,13 @@ const (
 	OpponentCounters
 )
 
+type ActionRequestPointer int
+
+const (
+	CurrentPlayerActionRequest ActionRequestPointer = iota
+	OpponentActionRequest
+)
+
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
 	return &Middleware{
 		deck:      deck,
@@ -89,13 +96,13 @@ func (m *Middleware) resetAllyState() {
 }
 
 func (m *Middleware) activateAbility(ability *Ability, cardId string, player PlayerId, state *State, actions *[]StateAction) {
-	currentPlayer, err := m.relativePlayer(player, Current)
+	currentPlayer, err := playerByPointer(player, Current)
 	if err != nil {
 		// TODO handle error
 		log.Println(err)
 		return
 	}
-	opponent, err := m.relativePlayer(player, Opponent)
+	opponent, err := playerByPointer(player, Opponent)
 	if err != nil {
 		// TODO handle error
 		log.Println(err)
@@ -132,14 +139,25 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 	var actions []StateAction
 	var deferredActions []StateAction
 
-	currentPlayer, err := m.relativePlayer(player, Current)
-	currentPlayerCounters, err := m.relativeCounters(player, CurrentPlayerCounters, state)
+	currentPlayer, err := playerByPointer(player, Current)
 	if err != nil {
 		// TODO handle error
 		log.Println(err)
 		return actions
 	}
-	opponent, err := m.relativePlayer(player, Opponent)
+	currentPlayerCounters, err := countersByPointer(player, CurrentPlayerCounters, state)
+	if err != nil {
+		// TODO handle error
+		log.Println(err)
+		return actions
+	}
+	currentPlayerActionRequest, err := actionRequestByPointer(player, CurrentPlayerActionRequest, state)
+	if err != nil {
+		// TODO handle error
+		log.Println(err)
+		return actions
+	}
+	opponent, err := playerByPointer(player, Opponent)
 	if err != nil {
 		// TODO handle error
 		log.Println(err)
@@ -256,9 +274,10 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 						// Update AllyState after utilization
 						foundSameFactionCard := false
 						for cardId, c := range state.Cards {
+							cardEntryId := strings.Split(cardId, "_")[0]
 							if cardId != id &&
 								(c.Location == currentTable || c.Location == currentBases) &&
-								deck[strings.Split(cardId, "_")[0]].faction == card.faction {
+								(deck[cardEntryId].faction == card.faction || cardEntryId == "mechWorld") {
 
 								foundSameFactionCard = true
 							}
@@ -288,7 +307,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		for i := 1; i <= HandCardsQty; i++ {
 			m.topCard(currentDeck, currentHand, &actions)
 		}
-		opponentCounters, err := m.relativeCounters(player, OpponentCounters, state)
+		opponentCounters, err := countersByPointer(player, OpponentCounters, state)
 		if err != nil {
 			// TODO handle exception
 			return actions
@@ -341,7 +360,15 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				m.playAbilities(player, cardId, state, &actions)
 			}
 		}
-		m.requestUserAction(currentPlayer, NoneAction, &actions)
+		actionRequested := false
+		for _, action := range actions {
+			if action.Type() == RequestUserAction {
+				actionRequested = true
+			}
+		}
+		if !actionRequested {
+			m.requestUserAction(currentPlayer, NoneAction, &actions)
+		}
 	case DestroyBase:
 		if len(parsed) < 2 {
 			//TODO: handle exception
@@ -477,6 +504,19 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			}
 		}
 		m.requestUserAction(player, NoneAction, &actions)
+	case ActivateMechWorld:
+		if currentPlayerActionRequest.Action == ActivateMechWorld {
+			for faction := range m.allyState.flags {
+				m.allyState.flags[faction] = true
+			}
+			for faction, abilities := range m.allyState.abilities {
+				for _, cardAbility := range abilities {
+					m.processAbility(cardAbility.ability, cardAbility.cardId, player, state, &actions)
+				}
+				m.allyState.abilities[faction] = []*CardAbility{}
+			}
+			m.requestUserAction(player, NoneAction, &actions)
+		}
 	}
 	for _, action := range deferredActions {
 		actions = append(actions, action)
@@ -501,88 +541,6 @@ func (m *Middleware) prepareState() []StateAction {
 		m.topCard(TradeDeck, TradeRow, &actions)
 	}
 	return actions
-}
-
-type WrongPlayerIdError struct {
-	id PlayerId
-}
-
-func (e *WrongPlayerIdError) Error() string {
-	return fmt.Sprintf("wrong PlayerId %d", e.id)
-}
-
-type WrongPlayerPointerError struct {
-	p PlayerPointer
-}
-
-func (e *WrongPlayerPointerError) Error() string {
-	return fmt.Sprintf("wrong PlayerPointer %d", e.p)
-}
-
-type WrongCountersPointerError struct {
-	p CountersPointer
-}
-
-func (e *WrongCountersPointerError) Error() string {
-	return fmt.Sprintf("wrong CountersPointer %d", e.p)
-}
-
-type WrongLocationPointerError struct {
-	p LocationPointer
-}
-
-func (e *WrongLocationPointerError) Error() string {
-	return fmt.Sprintf("wrong LocationPointer %d", e.p)
-}
-
-func (m *Middleware) relativePlayer(actualPlayer PlayerId, playerPointer PlayerPointer) (PlayerId, error) {
-	switch actualPlayer {
-	case FirstPlayer:
-		switch playerPointer {
-		case Current:
-			return FirstPlayer, nil
-		case Opponent:
-			return SecondPlayer, nil
-		default:
-			return actualPlayer, &WrongPlayerPointerError{playerPointer}
-		}
-	case SecondPlayer:
-		switch playerPointer {
-		case Current:
-			return SecondPlayer, nil
-		case Opponent:
-			return FirstPlayer, nil
-		default:
-			return actualPlayer, &WrongPlayerPointerError{playerPointer}
-		}
-	default:
-		return actualPlayer, &WrongPlayerIdError{actualPlayer}
-	}
-}
-
-func (m *Middleware) relativeCounters(player PlayerId, countersPointer CountersPointer, state *State) (Counters, error) {
-	switch player {
-	case FirstPlayer:
-		switch countersPointer {
-		case CurrentPlayerCounters:
-			return state.FirstPlayerCounters, nil
-		case OpponentCounters:
-			return state.SecondPlayerCounters, nil
-		default:
-			return Counters{}, &WrongCountersPointerError{countersPointer}
-		}
-	case SecondPlayer:
-		switch countersPointer {
-		case CurrentPlayerCounters:
-			return state.SecondPlayerCounters, nil
-		case OpponentCounters:
-			return state.FirstPlayerCounters, nil
-		default:
-			return Counters{}, &WrongCountersPointerError{countersPointer}
-		}
-	default:
-		return Counters{}, &WrongPlayerIdError{player}
-	}
 }
 
 func (m *Middleware) playAbilities(player PlayerId, cardId string, state *State, actions *[]StateAction) {
@@ -661,6 +619,71 @@ func (m *Middleware) moveAll(from CardLocation, to CardLocation, actions *[]Stat
 	})
 }
 
+type WrongPlayerIdError struct {
+	id PlayerId
+}
+
+func (e *WrongPlayerIdError) Error() string {
+	return fmt.Sprintf("wrong PlayerId %d", e.id)
+}
+
+type WrongPlayerPointerError struct {
+	p PlayerPointer
+}
+
+func (e *WrongPlayerPointerError) Error() string {
+	return fmt.Sprintf("wrong PlayerPointer %d", e.p)
+}
+
+type WrongCountersPointerError struct {
+	p CountersPointer
+}
+
+func (e *WrongCountersPointerError) Error() string {
+	return fmt.Sprintf("wrong CountersPointer %d", e.p)
+}
+
+type WrongActionRequestPointerError struct {
+	p ActionRequestPointer
+}
+
+func (e *WrongActionRequestPointerError) Error() string {
+	return fmt.Sprintf("wrong ActionRequestPointer %d", e.p)
+}
+
+type WrongLocationPointerError struct {
+	p LocationPointer
+}
+
+func (e *WrongLocationPointerError) Error() string {
+	return fmt.Sprintf("wrong LocationPointer %d", e.p)
+}
+
+func playerByPointer(actualPlayer PlayerId, playerPointer PlayerPointer) (PlayerId, error) {
+	switch actualPlayer {
+	case FirstPlayer:
+		switch playerPointer {
+		case Current:
+			return FirstPlayer, nil
+		case Opponent:
+			return SecondPlayer, nil
+		default:
+			return actualPlayer, &WrongPlayerPointerError{playerPointer}
+		}
+	case SecondPlayer:
+		switch playerPointer {
+		case Current:
+			return SecondPlayer, nil
+		case Opponent:
+			return FirstPlayer, nil
+		default:
+			return actualPlayer, &WrongPlayerPointerError{playerPointer}
+		}
+	default:
+		return actualPlayer, &WrongPlayerIdError{actualPlayer}
+	}
+}
+
 func locationByPointer(pointer LocationPointer, player PlayerId) (CardLocation, error) {
 	switch player {
 	case FirstPlayer:
@@ -699,5 +722,55 @@ func locationByPointer(pointer LocationPointer, player PlayerId) (CardLocation, 
 		}
 	default:
 		return UndefinedLocation, &WrongPlayerIdError{player}
+	}
+}
+
+func countersByPointer(player PlayerId, countersPointer CountersPointer, state *State) (Counters, error) {
+	switch player {
+	case FirstPlayer:
+		switch countersPointer {
+		case CurrentPlayerCounters:
+			return state.FirstPlayerCounters, nil
+		case OpponentCounters:
+			return state.SecondPlayerCounters, nil
+		default:
+			return Counters{}, &WrongCountersPointerError{countersPointer}
+		}
+	case SecondPlayer:
+		switch countersPointer {
+		case CurrentPlayerCounters:
+			return state.SecondPlayerCounters, nil
+		case OpponentCounters:
+			return state.FirstPlayerCounters, nil
+		default:
+			return Counters{}, &WrongCountersPointerError{countersPointer}
+		}
+	default:
+		return Counters{}, &WrongPlayerIdError{player}
+	}
+}
+
+func actionRequestByPointer(player PlayerId, pointer ActionRequestPointer, state *State) (ActionRequest, error) {
+	switch player {
+	case FirstPlayer:
+		switch pointer {
+		case CurrentPlayerActionRequest:
+			return state.FirstPlayerActionRequest, nil
+		case OpponentActionRequest:
+			return state.SecondPlayerActionRequest, nil
+		default:
+			return ActionRequest{}, &WrongActionRequestPointerError{pointer}
+		}
+	case SecondPlayer:
+		switch pointer {
+		case CurrentPlayerActionRequest:
+			return state.SecondPlayerActionRequest, nil
+		case OpponentActionRequest:
+			return state.FirstPlayerActionRequest, nil
+		default:
+			return ActionRequest{}, &WrongActionRequestPointerError{pointer}
+		}
+	default:
+		return ActionRequest{}, &WrongPlayerIdError{player}
 	}
 }

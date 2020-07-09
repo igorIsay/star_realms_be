@@ -110,6 +110,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["junkyard"] = junkyard()
 	deck["machineBase"] = machineBase()
 	deck["brainWorld"] = brainWorld()
+	deck["mechWorld"] = mechWorld()
 
 	deck["federationShuttle"] = federationShuttle()
 	deck["cutter"] = cutter()
@@ -1447,6 +1448,23 @@ func brainWorld() *CardEntry {
 				id:         BrainWorld,
 				player:     Current,
 				actions:    actionRequest(ActivateBrainWorld),
+			},
+		},
+	}
+}
+
+func mechWorld() *CardEntry {
+	return &CardEntry{
+		cost:     5,
+		qty:      1,
+		faction:  MachineCult,
+		cardType: Base,
+		defense:  6,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: actionRequest(ActivateMechWorld),
 			},
 		},
 	}
