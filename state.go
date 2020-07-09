@@ -68,6 +68,7 @@ const (
 	DestroyBaseBlobDestroyer
 	ActivateBrainWorld
 	ActivateMechWorld
+	ActivateRecyclingStation
 )
 
 type ActionRequest struct {

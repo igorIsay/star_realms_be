@@ -491,19 +491,37 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		}
 		m.requestUserAction(player, NoneAction, &actions)
 	case ActivateBrainWorld:
-		if len(parsed) > 1 && len(parsed) <= 3 {
-			for _, id := range parsed[1:] {
-				_, ok := deck[strings.Split(id, "_")[0]]
-				if ok {
-					card, ok := state.Cards[id]
-					if ok && (card.Location == currentHand || card.Location == currentDiscard) {
-						m.moveCard(id, ScrapHeap, &actions)
-						m.topCard(currentDeck, currentHand, &actions)
+		if currentPlayerActionRequest.Action == ActivateBrainWorld {
+			if len(parsed) > 1 && len(parsed) <= 3 {
+				for _, id := range parsed[1:] {
+					_, ok := deck[strings.Split(id, "_")[0]]
+					if ok {
+						card, ok := state.Cards[id]
+						if ok && (card.Location == currentHand || card.Location == currentDiscard) {
+							m.moveCard(id, ScrapHeap, &actions)
+							m.topCard(currentDeck, currentHand, &actions)
+						}
 					}
 				}
 			}
+			m.requestUserAction(player, NoneAction, &actions)
 		}
-		m.requestUserAction(player, NoneAction, &actions)
+	case ActivateRecyclingStation:
+		if currentPlayerActionRequest.Action == ActivateRecyclingStation {
+			if len(parsed) > 1 && len(parsed) <= 3 {
+				for _, id := range parsed[1:] {
+					_, ok := deck[strings.Split(id, "_")[0]]
+					if ok {
+						card, ok := state.Cards[id]
+						if ok && (card.Location == currentHand) {
+							m.moveCard(id, currentDiscard, &actions)
+							m.topCard(currentDeck, currentHand, &actions)
+						}
+					}
+				}
+			}
+			m.requestUserAction(player, NoneAction, &actions)
+		}
 	case ActivateMechWorld:
 		if currentPlayerActionRequest.Action == ActivateMechWorld {
 			for faction := range m.allyState.flags {

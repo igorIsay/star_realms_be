@@ -46,6 +46,7 @@ const (
 	Junkyard
 	MachineBase
 	BrainWorld
+	RecyclingStation
 )
 
 type AbilityGroup int
@@ -100,6 +101,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["surveyShip"] = surveyShip()
 	deck["warWorld"] = warWorld()
 	deck["battlecruiser"] = battlecruiser()
+	deck["recyclingStation"] = recyclingStation()
 
 	deck["battleMech"] = battleMech()
 	deck["missileBot"] = missileBot()
@@ -1465,6 +1467,25 @@ func mechWorld() *CardEntry {
 				group:   Primary,
 				player:  Current,
 				actions: actionRequest(ActivateMechWorld),
+			},
+		},
+	}
+}
+
+func recyclingStation() *CardEntry {
+	return &CardEntry{
+		cost:     4,
+		qty:      2,
+		faction:  StarEmpire,
+		cardType: Base,
+		defense:  4,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         RecyclingStation,
+				player:     Current,
+				actions:    actionRequest(ActivateRecyclingStation),
 			},
 		},
 	}
