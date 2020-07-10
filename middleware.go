@@ -238,6 +238,9 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				m.moveCard(id, currentBases, &actions)
 			}
 
+			if card.faction == Blob {
+				m.changeCounterValue(currentPlayer, Increase, blobs, 1, &actions)
+			}
 			if len(card.beforePlay) > 0 {
 				for _, ability := range card.beforePlay {
 					m.processAbility(ability, id, player, state, &actions)
@@ -308,6 +311,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		m.changeCounterValue(currentPlayer, Set, Combat, 0, &actions)
 		m.changeCounterValue(currentPlayer, Set, ShipsOnTop, 0, &actions)
 		m.changeCounterValue(currentPlayer, Set, fleetFlag, 0, &actions)
+		m.changeCounterValue(currentPlayer, Set, blobs, 0, &actions)
 		for i := 1; i <= HandCardsQty; i++ {
 			m.topCard(currentDeck, currentHand, &actions)
 		}

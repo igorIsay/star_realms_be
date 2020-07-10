@@ -44,6 +44,7 @@ const (
 	Discard
 	ShipsOnTop
 	fleetFlag
+	blobs
 )
 
 type Operation int
@@ -253,6 +254,7 @@ func (s *StateManager) run() {
 			counters[Discard] = &c.Discard
 			counters[ShipsOnTop] = &c.ShipsOnTop
 			counters[fleetFlag] = &c.fleetFlag
+			counters[blobs] = &c.blobs
 			calc(counters[counter], value, operation)
 		case TopCard:
 			data := action.Data()

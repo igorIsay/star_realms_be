@@ -47,6 +47,8 @@ const (
 	MachineBase
 	BrainWorld
 	RecyclingStation
+	BlobWorldCombat
+	BlobWorldDraw
 )
 
 type AbilityGroup int
@@ -84,6 +86,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["viper"] = viper()
 	deck["explorer"] = explorer()
 
+	deck["blobFighter"] = blobFighter()
 	deck["tradePod"] = tradePod()
 	deck["ram"] = ram()
 	deck["battlePod"] = battlePod()
@@ -91,6 +94,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["blobWheel"] = blobWheel()
 	deck["blobCarrier"] = blobCarrier()
 	deck["blobDestroyer"] = blobDestroyer()
+	deck["blobWorld"] = blobWorld()
 
 	deck["corvette"] = corvette()
 	deck["dreadnaught"] = dreadnaught()
@@ -127,6 +131,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["freighter"] = freighter()
 	deck["centralOffice"] = centralOffice()
 	deck["embassyYacht"] = embassyYacht()
+
 	return &deck
 }
 
@@ -1503,6 +1508,78 @@ func fleetHQ() *CardEntry {
 				group:   Primary,
 				player:  Current,
 				actions: changeCounter(Set, fleetFlag, 1),
+			},
+		},
+	}
+}
+
+func blobWorld() *CardEntry {
+	return &CardEntry{
+		cost:     8,
+		qty:      1,
+		faction:  Blob,
+		cardType: Base,
+		defense:  7,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         BlobWorldCombat,
+				player:     Current,
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
+					return []StateAction{
+						&StateActionChangeCounterValue{
+							player:    player,
+							counter:   Combat,
+							operation: Increase,
+							value:     5,
+						},
+						&StateActionDisableActivatedAbility{
+							cardId:    cardId,
+							abilityId: BlobWorldDraw,
+						},
+					}
+				},
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         BlobWorldDraw,
+				player:     Current,
+				actions: func(player PlayerId, cardId string, state *State) []StateAction {
+					actions := []StateAction{}
+					counters, err := countersByPointer(player, CurrentPlayerCounters, state)
+					if err != nil {
+						// TODO handle error
+						log.Println(err)
+						return actions
+					}
+
+					currentDeck, err := locationByPointer(CurrentDeck, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+					currentHand, err := locationByPointer(CurrentHand, player)
+					if err != nil {
+						// TODO: handle exception
+						log.Println(err)
+						return []StateAction{}
+					}
+
+					for i := 0; i < counters.blobs; i++ {
+						actions = append(
+							actions,
+							&StateActionTopCard{
+								from: currentDeck,
+								to:   currentHand,
+							},
+						)
+					}
+
+					return actions
+				},
 			},
 		},
 	}
