@@ -71,6 +71,7 @@ const (
 	ActivateBrainWorld
 	ActivateMechWorld
 	ActivateRecyclingStation
+	ActivateNeedle
 )
 
 type ActionRequest struct {

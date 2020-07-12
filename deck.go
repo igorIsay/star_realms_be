@@ -118,6 +118,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["machineBase"] = machineBase()
 	deck["brainWorld"] = brainWorld()
 	deck["mechWorld"] = mechWorld()
+	deck["stealthNeedle"] = stealthNeedle()
 
 	deck["federationShuttle"] = federationShuttle()
 	deck["cutter"] = cutter()
@@ -1580,6 +1581,22 @@ func blobWorld() *CardEntry {
 
 					return actions
 				},
+			},
+		},
+	}
+}
+
+func stealthNeedle() *CardEntry {
+	return &CardEntry{
+		cost:     4,
+		qty:      1,
+		faction:  MachineCult,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: actionRequest(ActivateNeedle),
 			},
 		},
 	}

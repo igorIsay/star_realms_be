@@ -67,6 +67,9 @@ const (
 	OpponentActionRequest
 )
 
+const NEEDLE_SUFFIX string = "_needle"
+const NEEDLE_ID string = "stealthNeedle_1"
+
 func newMiddleware(deck *map[string]*CardEntry) *Middleware {
 	return &Middleware{
 		deck:      deck,
@@ -276,7 +279,11 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 					m.activateAbility(ability, id, player, state, &actions)
 
 					if ability.id == Utilization {
-						m.moveCard(id, ScrapHeap, &actions)
+						if strings.HasSuffix(id, NEEDLE_SUFFIX) {
+							m.moveCard(NEEDLE_ID, ScrapHeap, &actions)
+						} else {
+							m.moveCard(id, ScrapHeap, &actions)
+						}
 						// Update AllyState after utilization
 						foundSameFactionCard := false
 						for cardId, c := range state.Cards {
@@ -543,7 +550,55 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			}
 			m.requestUserAction(player, NoneAction, &actions)
 		}
+	case ActivateNeedle:
+		if len(parsed) < 2 {
+			//TODO: handle exception
+			return actions
+		}
+		id := parsed[1]
+		card, ok := state.Cards[id]
+		if !ok {
+			//TODO: handle exception
+			return actions
+		}
+		if card.Location != currentTable {
+			//TODO: handle exception
+			return actions
+		}
+		cardEntryId := strings.Split(id, "_")[0]
+		cardEntry, ok := deck[cardEntryId]
+		if !ok {
+			//TODO: handle exception
+			return actions
+		}
+		if cardEntry.cardType != Ship {
+			//TODO: handle exception
+			return actions
+		}
+		if len(cardEntry.beforePlay) > 0 {
+			for _, ability := range cardEntry.beforePlay {
+				m.processAbility(ability, id, player, state, &actions)
+			}
+
+			m.deferredCall = func() []StateAction {
+				var actions []StateAction
+				m.playAbilities(player, id+NEEDLE_SUFFIX, state, &actions)
+				return actions
+			}
+		} else {
+			m.playAbilities(player, id+NEEDLE_SUFFIX, state, &actions)
+		}
+		actionRequested := false
+		for _, action := range actions {
+			if action.Type() == RequestUserAction {
+				actionRequested = true
+			}
+		}
+		if !actionRequested {
+			m.requestUserAction(currentPlayer, NoneAction, &actions)
+		}
 	}
+
 	for _, action := range deferredActions {
 		actions = append(actions, action)
 	}
