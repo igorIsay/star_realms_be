@@ -95,6 +95,8 @@ func getDeck() *map[string]*CardEntry {
 	deck["blobCarrier"] = blobCarrier()
 	deck["blobDestroyer"] = blobDestroyer()
 	deck["blobWorld"] = blobWorld()
+	deck["battleBlob"] = battleBlob()
+	deck["mothership"] = mothership()
 
 	deck["corvette"] = corvette()
 	deck["dreadnaught"] = dreadnaught()
@@ -119,6 +121,7 @@ func getDeck() *map[string]*CardEntry {
 	deck["brainWorld"] = brainWorld()
 	deck["mechWorld"] = mechWorld()
 	deck["stealthNeedle"] = stealthNeedle()
+	deck["battleStation"] = battleStation()
 
 	deck["federationShuttle"] = federationShuttle()
 	deck["cutter"] = cutter()
@@ -253,6 +256,60 @@ func blobFighter() *CardEntry {
 			},
 		},
 		cardType: Ship,
+	}
+}
+
+func battleBlob() *CardEntry {
+	return &CardEntry{
+		cost:     6,
+		qty:      1,
+		faction:  Blob,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 8),
+			},
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Combat, 4),
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
+			},
+		},
+	}
+}
+
+func mothership() *CardEntry {
+	return &CardEntry{
+		cost:     7,
+		qty:      1,
+		faction:  Blob,
+		cardType: Ship,
+		abilities: []*Ability{
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: changeCounter(Increase, Combat, 6),
+			},
+			&Ability{
+				group:   Primary,
+				player:  Current,
+				actions: drawCard,
+			},
+			&Ability{
+				group:   Ally,
+				player:  Current,
+				actions: drawCard,
+			},
+		},
 	}
 }
 
@@ -1597,6 +1654,25 @@ func stealthNeedle() *CardEntry {
 				group:   Primary,
 				player:  Current,
 				actions: actionRequest(ActivateNeedle),
+			},
+		},
+	}
+}
+
+func battleStation() *CardEntry {
+	return &CardEntry{
+		cost:     3,
+		qty:      2,
+		faction:  MachineCult,
+		cardType: Base,
+		defense:  5,
+		abilities: []*Ability{
+			&Ability{
+				group:      Primary,
+				actionType: Activated,
+				id:         Utilization,
+				player:     Current,
+				actions:    changeCounter(Increase, Combat, 5),
 			},
 		},
 	}
