@@ -17,6 +17,7 @@ type CardType int
 const (
 	Ship CardType = iota
 	Base
+	Outpost
 )
 
 type AbilityActionType int
@@ -601,7 +602,7 @@ func royalRedoubt() *CardEntry {
 		cost:     6,
 		qty:      1,
 		faction:  StarEmpire,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  6,
 		abilities: []*Ability{
 			&Ability{
@@ -623,7 +624,7 @@ func spaceStation() *CardEntry {
 		cost:     4,
 		qty:      2,
 		faction:  StarEmpire,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  4,
 		abilities: []*Ability{
 			&Ability{
@@ -680,7 +681,7 @@ func warWorld() *CardEntry {
 		cost:     5,
 		qty:      1,
 		faction:  StarEmpire,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  4,
 		abilities: []*Ability{
 			&Ability{
@@ -1107,7 +1108,7 @@ func tradingPost() *CardEntry {
 		cost:     3,
 		qty:      2,
 		faction:  TradeFederation,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  4,
 		abilities: []*Ability{
 			&Ability{
@@ -1225,7 +1226,7 @@ func defenseCenter() *CardEntry {
 		cost:     5,
 		qty:      1,
 		faction:  TradeFederation,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  5,
 		abilities: []*Ability{
 			&Ability{
@@ -1282,7 +1283,7 @@ func portOfCall() *CardEntry {
 		cost:     6,
 		qty:      1,
 		faction:  TradeFederation,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  6,
 		abilities: []*Ability{
 			&Ability{
@@ -1378,7 +1379,7 @@ func junkyard() *CardEntry {
 		cost:     6,
 		qty:      1,
 		faction:  MachineCult,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  5,
 		abilities: []*Ability{
 			&Ability{
@@ -1461,7 +1462,7 @@ func machineBase() *CardEntry {
 		cost:     7,
 		qty:      1,
 		faction:  MachineCult,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  6,
 		abilities: []*Ability{
 			&Ability{
@@ -1504,7 +1505,7 @@ func brainWorld() *CardEntry {
 		cost:     8,
 		qty:      1,
 		faction:  MachineCult,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  6,
 		abilities: []*Ability{
 			&Ability{
@@ -1523,7 +1524,7 @@ func mechWorld() *CardEntry {
 		cost:     5,
 		qty:      1,
 		faction:  MachineCult,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  6,
 		abilities: []*Ability{
 			&Ability{
@@ -1540,7 +1541,7 @@ func recyclingStation() *CardEntry {
 		cost:     4,
 		qty:      2,
 		faction:  StarEmpire,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  4,
 		abilities: []*Ability{
 			&Ability{
@@ -1664,7 +1665,7 @@ func battleStation() *CardEntry {
 		cost:     3,
 		qty:      2,
 		faction:  MachineCult,
-		cardType: Base,
+		cardType: Outpost,
 		defense:  5,
 		abilities: []*Ability{
 			&Ability{

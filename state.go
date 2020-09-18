@@ -10,13 +10,14 @@ type State struct {
 	FirstPlayerActionRequest  ActionRequest                 `json:"firstPlayerActionRequest"`
 	SecondPlayerActionRequest ActionRequest                 `json:"secondPlayerActionRequest"`
 	ActivatedAbilities        map[string]ActivatedAbilities `json:"activatedAbilities"`
+	Actions                   []map[string]interface{}      `json:"actions"`
 	lastIndex                 map[CardLocation]int
 }
 type ActivatedAbilities map[AbilityId]bool
 
 type Card struct {
 	Location CardLocation `json:"location"`
-	index    int
+	Index    int          `json:"index"`
 }
 
 type CardLocation int
@@ -111,13 +112,13 @@ func cardsInitialSet(deck *map[string]*CardEntry, lastIndex map[CardLocation]int
 					lastIndex[FirstPlayerDeck] += 1
 					cards[id] = &Card{
 						Location: FirstPlayerDeck,
-						index:    lastIndex[FirstPlayerDeck],
+						Index:    lastIndex[FirstPlayerDeck],
 					}
 				} else {
 					lastIndex[SecondPlayerDeck] += 1
 					cards[id] = &Card{
 						Location: SecondPlayerDeck,
-						index:    lastIndex[SecondPlayerDeck],
+						Index:    lastIndex[SecondPlayerDeck],
 					}
 				}
 			}
@@ -129,13 +130,13 @@ func cardsInitialSet(deck *map[string]*CardEntry, lastIndex map[CardLocation]int
 					lastIndex[FirstPlayerDeck] += 1
 					cards[id] = &Card{
 						Location: FirstPlayerDeck,
-						index:    lastIndex[FirstPlayerDeck],
+						Index:    lastIndex[FirstPlayerDeck],
 					}
 				} else {
 					lastIndex[SecondPlayerDeck] += 1
 					cards[id] = &Card{
 						Location: SecondPlayerDeck,
-						index:    lastIndex[SecondPlayerDeck],
+						Index:    lastIndex[SecondPlayerDeck],
 					}
 				}
 			}
@@ -145,7 +146,7 @@ func cardsInitialSet(deck *map[string]*CardEntry, lastIndex map[CardLocation]int
 				id := fmt.Sprintf("%s_%d", key, i)
 				cards[id] = &Card{
 					Location: Explorers,
-					index:    lastIndex[Explorers],
+					Index:    lastIndex[Explorers],
 				}
 			}
 		default:
@@ -154,7 +155,7 @@ func cardsInitialSet(deck *map[string]*CardEntry, lastIndex map[CardLocation]int
 				lastIndex[TradeDeck] += 1
 				cards[id] = &Card{
 					Location: TradeDeck,
-					index:    lastIndex[TradeDeck],
+					Index:    lastIndex[TradeDeck],
 				}
 			}
 

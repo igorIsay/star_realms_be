@@ -141,6 +141,7 @@ func (m *Middleware) processAbility(ability *Ability, cardId string, player Play
 func (m *Middleware) handle(action string, player PlayerId, state *State) []StateAction {
 	var actions []StateAction
 	var deferredActions []StateAction
+	actions = append(actions, &StateActionResetActions{})
 
 	currentPlayer, err := playerByPointer(player, Current)
 	if err != nil {
@@ -233,12 +234,12 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		card, ok := deck[strings.Split(id, "_")[0]]
 		if ok {
 			if card.cardType == Ship {
-				m.moveCard(id, currentTable, &actions)
+				m.moveCard(id, state.Cards[id].Location, currentTable, &actions)
 				if currentPlayerCounters.fleetFlag == 1 {
 					m.changeCounterValue(currentPlayer, Increase, Combat, 1, &actions)
 				}
 			} else {
-				m.moveCard(id, currentBases, &actions)
+				m.moveCard(id, state.Cards[id].Location, currentBases, &actions)
 			}
 
 			if card.faction == Blob {
@@ -280,9 +281,9 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 
 					if ability.id == Utilization {
 						if strings.HasSuffix(id, NEEDLE_SUFFIX) {
-							m.moveCard(NEEDLE_ID, ScrapHeap, &actions)
+							m.moveCard(NEEDLE_ID, state.Cards[NEEDLE_ID].Location, ScrapHeap, &actions)
 						} else {
-							m.moveCard(id, ScrapHeap, &actions)
+							m.moveCard(id, state.Cards[id].Location, ScrapHeap, &actions)
 						}
 						// Update AllyState after utilization
 						foundSameFactionCard := false
@@ -360,10 +361,10 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 		}
 
 		if card.cardType == Ship && currentPlayerCounters.ShipsOnTop > 0 {
-			m.moveCard(id, currentDeck, &actions)
+			m.moveCard(id, state.Cards[id].Location, currentDeck, &actions)
 			m.changeCounterValue(currentPlayer, Decrease, ShipsOnTop, 1, &actions)
 		} else {
-			m.moveCard(id, currentDiscard, &actions)
+			m.moveCard(id, state.Cards[id].Location, currentDiscard, &actions)
 		}
 		m.changeCounterValue(currentPlayer, Decrease, Trade, card.cost, &actions)
 		if cardEntryId != "explorer" {
@@ -395,12 +396,12 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		if card.cardType != Base {
+		if card.cardType == Ship {
 			//TODO: handle exception
 			return actions
 		}
 		m.changeCounterValue(currentPlayer, Decrease, Combat, card.defense, &actions)
-		m.moveCard(baseId, opponentDiscard, &actions)
+		m.moveCard(baseId, state.Cards[baseId].Location, opponentDiscard, &actions)
 	case DiscardCard:
 		if len(parsed) < 2 {
 			//TODO: handle exception
@@ -413,7 +414,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			return actions
 		}
 
-		m.moveCard(id, currentDiscard, &actions)
+		m.moveCard(id, state.Cards[id].Location, currentDiscard, &actions)
 		m.changeCounterValue(currentPlayer, Decrease, Discard, 1, &actions)
 
 		if err != nil {
@@ -428,7 +429,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			id := parsed[1]
 			_, ok := deck[strings.Split(id, "_")[0]]
 			if ok {
-				m.moveCard(id, ScrapHeap, &actions)
+				m.moveCard(id, state.Cards[id].Location, ScrapHeap, &actions)
 			}
 		}
 		m.requestUserAction(player, NoneAction, &actions)
@@ -437,7 +438,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			id := parsed[1]
 			_, ok := deck[strings.Split(id, "_")[0]]
 			if ok {
-				m.moveCard(id, ScrapHeap, &actions)
+				m.moveCard(id, state.Cards[id].Location, ScrapHeap, &actions)
 			}
 			m.topCard(TradeDeck, TradeRow, &actions)
 		}
@@ -449,7 +450,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			if ok {
 				card, ok := state.Cards[id]
 				if ok && card.Location == currentHand {
-					m.moveCard(id, ScrapHeap, &actions)
+					m.moveCard(id, state.Cards[id].Location, ScrapHeap, &actions)
 					m.requestUserAction(player, NoneAction, &actions)
 				}
 			}
@@ -462,11 +463,11 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				//TODO: handle exception
 				return actions
 			}
-			if card.cardType != Base {
+			if card.cardType == Ship {
 				//TODO: handle exception
 				return actions
 			}
-			m.moveCard(baseId, opponentDiscard, &actions)
+			m.moveCard(baseId, state.Cards[baseId].Location, opponentDiscard, &actions)
 		}
 		m.requestUserAction(player, NoneAction, &actions)
 	case DestroyBaseBlobDestroyer:
@@ -477,11 +478,11 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 				//TODO: handle exception
 				return actions
 			}
-			if card.cardType != Base {
+			if card.cardType == Ship {
 				//TODO: handle exception
 				return actions
 			}
-			m.moveCard(baseId, opponentDiscard, &actions)
+			m.moveCard(baseId, state.Cards[baseId].Location, opponentDiscard, &actions)
 		}
 		m.requestUserAction(player, ScrapCardTradeRow, &actions)
 	case AcquireShipForFree:
@@ -500,7 +501,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 			//TODO: handle exception
 			return actions
 		}
-		m.moveCard(id, currentDeck, &actions)
+		m.moveCard(id, state.Cards[id].Location, currentDeck, &actions)
 		if cardEntryId != "explorer" {
 			m.topCard(TradeDeck, TradeRow, &actions)
 		}
@@ -513,7 +514,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 					if ok {
 						card, ok := state.Cards[id]
 						if ok && (card.Location == currentHand || card.Location == currentDiscard) {
-							m.moveCard(id, ScrapHeap, &actions)
+							m.moveCard(id, state.Cards[id].Location, ScrapHeap, &actions)
 							m.topCard(currentDeck, currentHand, &actions)
 						}
 					}
@@ -529,7 +530,7 @@ func (m *Middleware) handle(action string, player PlayerId, state *State) []Stat
 					if ok {
 						card, ok := state.Cards[id]
 						if ok && (card.Location == currentHand) {
-							m.moveCard(id, currentDiscard, &actions)
+							m.moveCard(id, state.Cards[id].Location, currentDiscard, &actions)
 							m.topCard(currentDeck, currentHand, &actions)
 						}
 					}
@@ -621,6 +622,7 @@ func (m *Middleware) prepareState() []StateAction {
 	for i := 1; i <= TradeRowQty; i++ {
 		m.topCard(TradeDeck, TradeRow, &actions)
 	}
+	actions = append(actions, &StateActionResetActions{})
 	return actions
 }
 
@@ -657,10 +659,11 @@ func (m *Middleware) playAbilities(player PlayerId, cardId string, state *State,
 	}
 }
 
-func (m *Middleware) moveCard(id string, to CardLocation, actions *[]StateAction) {
+func (m *Middleware) moveCard(id string, from CardLocation, to CardLocation, actions *[]StateAction) {
 	*actions = append(*actions, &StateActionMoveCard{
-		id: id,
-		to: to,
+		id:   id,
+		to:   to,
+		from: from,
 	})
 }
 

@@ -25,6 +25,7 @@ const (
 	AddActivatedAbility
 	DisableActivatedAbility
 	ResetActivatedAbilities
+	ResetActions
 	ShuffleDeck
 )
 
@@ -54,6 +55,13 @@ const (
 	Decrease
 	Set
 )
+
+func EncodeAction(action StateAction) map[string]interface{} {
+	data := make(map[string]interface{})
+	data["type"] = action.Type()
+	data["data"] = action.Data()
+	return data
+}
 
 type StateAction interface {
 	Type() StateActionType
@@ -111,8 +119,9 @@ func (s *StateActionShuffleDeck) Data() map[string]interface{} {
 }
 
 type StateActionMoveCard struct {
-	id string
-	to CardLocation
+	id   string
+	to   CardLocation
+	from CardLocation
 }
 
 func (s *StateActionMoveCard) Type() StateActionType {
@@ -123,6 +132,7 @@ func (s *StateActionMoveCard) Data() map[string]interface{} {
 	data := make(map[string]interface{})
 	data["id"] = s.id
 	data["to"] = s.to
+	data["from"] = s.from
 	return data
 }
 
@@ -214,14 +224,6 @@ func (s *StateActionDisableActivatedAbility) Data() map[string]interface{} {
 	return data
 }
 
-func newStateManager(deck *map[string]*CardEntry) *StateManager {
-	return &StateManager{
-		state:  newState(deck),
-		action: make(chan StateAction),
-		json:   make(chan []byte),
-	}
-}
-
 type StateActionResetActivatedAbilities struct{}
 
 func (s *StateActionResetActivatedAbilities) Type() StateActionType {
@@ -233,9 +235,31 @@ func (s *StateActionResetActivatedAbilities) Data() map[string]interface{} {
 	return data
 }
 
+type StateActionResetActions struct{}
+
+func (s *StateActionResetActions) Type() StateActionType {
+	return ResetActions
+}
+
+func (s *StateActionResetActions) Data() map[string]interface{} {
+	data := make(map[string]interface{})
+	return data
+}
+
+func newStateManager(deck *map[string]*CardEntry) *StateManager {
+	return &StateManager{
+		state:  newState(deck),
+		action: make(chan StateAction),
+		json:   make(chan []byte),
+	}
+}
+
 func (s *StateManager) run() {
 	for {
 		action := <-s.action
+		if action.Type() != GetState {
+			s.state.Actions = append(s.state.Actions, EncodeAction(action))
+		}
 		switch action.Type() {
 		case ChangeCounterValue:
 			data := action.Data()
@@ -264,31 +288,61 @@ func (s *StateManager) run() {
 			if len(deck) == 0 && (from == FirstPlayerDeck || from == SecondPlayerDeck) {
 				if from == FirstPlayerDeck {
 					discard := s.cardsByLocation(FirstPlayerDiscard)
-					for _, c := range discard {
+					for id, c := range discard {
 						s.state.lastIndex[c.Location] -= 1
 						s.state.lastIndex[FirstPlayerDeck] += 1
 						c.Location = FirstPlayerDeck
-						c.index = s.state.lastIndex[FirstPlayerDeck]
+						c.Index = s.state.lastIndex[FirstPlayerDeck]
+						s.state.Actions = append(
+							s.state.Actions,
+							EncodeAction(
+								&StateActionMoveCard{
+									id:   id,
+									to:   FirstPlayerDeck,
+									from: from,
+								},
+							),
+						)
 					}
 				}
 				if from == SecondPlayerDeck {
 					discard := s.cardsByLocation(SecondPlayerDiscard)
-					for _, c := range discard {
+					for id, c := range discard {
 						s.state.lastIndex[c.Location] -= 1
 						s.state.lastIndex[SecondPlayerDeck] += 1
 						c.Location = SecondPlayerDeck
-						c.index = s.state.lastIndex[SecondPlayerDeck]
+						c.Index = s.state.lastIndex[SecondPlayerDeck]
+						s.state.Actions = append(
+							s.state.Actions,
+							EncodeAction(
+								&StateActionMoveCard{
+									id:   id,
+									to:   SecondPlayerDeck,
+									from: from,
+								},
+							),
+						)
 					}
 				}
 				deck = s.cardsByLocation(from)
 				s.shuffle(deck)
 			}
-			for _, card := range deck {
-				if card.index == s.state.lastIndex[card.Location] {
+			for id, card := range deck {
+				if card.Index == s.state.lastIndex[card.Location] {
 					s.state.lastIndex[card.Location] -= 1
 					s.state.lastIndex[to] += 1
 					card.Location = to
-					card.index = s.state.lastIndex[to]
+					card.Index = s.state.lastIndex[to]
+					s.state.Actions = append(
+						s.state.Actions,
+						EncodeAction(
+							&StateActionMoveCard{
+								id:   id,
+								to:   to,
+								from: from,
+							},
+						),
+					)
 					break
 				}
 			}
@@ -302,21 +356,35 @@ func (s *StateManager) run() {
 			to := data["to"].(CardLocation)
 			card, ok := s.cardById(id)
 			if ok {
-				s.state.lastIndex[card.Location] -= 1
+				if card.Location != TradeRow &&
+					card.Location != FirstPlayerHand &&
+					card.Location != SecondPlayerHand {
+					s.state.lastIndex[card.Location] -= 1
+				}
 				s.state.lastIndex[to] += 1
 				card.Location = to
-				card.index = s.state.lastIndex[to]
+				card.Index = s.state.lastIndex[to]
 			}
 		case MoveAll:
 			data := action.Data()
 			from := data["from"].(CardLocation)
 			to := data["to"].(CardLocation)
 			cards := s.cardsByLocation(from)
-			for _, card := range cards {
+			for id, card := range cards {
 				s.state.lastIndex[card.Location] -= 1
 				s.state.lastIndex[to] += 1
 				card.Location = to
-				card.index = s.state.lastIndex[to]
+				card.Index = s.state.lastIndex[to]
+				s.state.Actions = append(
+					s.state.Actions,
+					EncodeAction(
+						&StateActionMoveCard{
+							id:   id,
+							to:   to,
+							from: from,
+						},
+					),
+				)
 			}
 		case ChangeTurn:
 			if s.state.Turn == FirstPlayer {
@@ -359,6 +427,9 @@ func (s *StateManager) run() {
 			}
 		case ResetActivatedAbilities:
 			s.state.ActivatedAbilities = make(map[string]ActivatedAbilities)
+		case ResetActions:
+			var actions []map[string]interface{}
+			s.state.Actions = actions
 		case GetState:
 			state, _ := json.Marshal(s.state)
 			s.json <- state
@@ -384,12 +455,12 @@ func (s *StateManager) cardsByLocation(l CardLocation) map[string]*Card {
 func (s *StateManager) shuffle(deck map[string]*Card) {
 	indexes := []int{}
 	for _, card := range deck {
-		indexes = append(indexes, card.index)
+		indexes = append(indexes, card.Index)
 	}
 	rand.Seed(time.Now().Unix())
 	for _, card := range deck {
 		idx := rand.Intn(len(indexes))
-		card.index = indexes[idx]
+		card.Index = indexes[idx]
 		indexes = removeFromSlice(indexes, idx)
 	}
 
