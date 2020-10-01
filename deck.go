@@ -512,7 +512,7 @@ func imperialFighter() *CardEntry {
 
 func imperialFrigate() *CardEntry {
 	return &CardEntry{
-		cost:    1,
+		cost:    3,
 		qty:     3,
 		faction: StarEmpire,
 		abilities: []*Ability{
